@@ -1,0 +1,92 @@
+[project]
+name = "movie-renamer"
+version = "0.0.1"
+description = "Scan release-style movie folders and organise into Plex/Jellyfin-friendly layout."
+readme = "README.md"
+requires-python = ">=3.14"
+license = { text = "MIT" }
+authors = [{ name = "Zach", email = "zach@example.com" }]
+dependencies = [
+  "typer>=0.12.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "ruff>=0.0.0",
+  "ty>=0.0.70",
+  "pytest-cov>=0.0.0",
+  "pytest>=9.1.1",
+  "towncrier>=24.8.0",
+]
+
+[project.scripts]
+movie-renamer = "movie_renamer.cli:app"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --cov=src/movie_renamer --cov-report=term-missing --cov-report=xml:coverage.xml"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+lint.select = ["E", "F", "I", "UP", "B"]
+lint.ignore = []
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "tab"
+
+[tool.ty]
+
+[tool.ty.environment]
+python-version = "3.14"
+
+[tool.ty.rules]
+# Keep diagnostics non-fatal to match the previous `mypy` (non-strict) setup.
+all = "warn"
+
+[tool.ty.terminal]
+# Exit with code 0 if everything is just warnings.
+error-on-warning = false
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+skip_empty = true
+
+[tool.towncrier]
+package = "movie_renamer"
+directory = "changes"
+filename = "CHANGELOG.md"
+title_format = "## {version} ({project_date})"
+start_string = "<!-- towncrier -->"
+issue_format = "#{issue}"
+underlines = ["", "", ""]
+
+[[tool.towncrier.type]]
+directory = "feature"
+name = "Features"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "bugfix"
+name = "Bug Fixes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "doc"
+name = "Documentation"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "misc"
+name = "Misc"
+showcontent = true
