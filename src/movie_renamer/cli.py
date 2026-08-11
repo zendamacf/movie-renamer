@@ -85,17 +85,24 @@ def main(
 
 	ignore_globs: list[str] = list(ignore)
 	edition_phrases: list[str] | None = None
-	if source_dir is not None and not source_dir.exists():
-		raise typer.BadParameter(f'`source_dir` does not exist: {source_dir}')
 
 	if config is not None:
-		data = json.loads(config.read_text(encoding='utf-8'))
+		if not config.exists():
+			raise typer.BadParameter(f'Config file does not exist: {config}')
+		try:
+			data = json.loads(config.read_text(encoding='utf-8'))
+		except json.JSONDecodeError as e:
+			raise typer.BadParameter(f'Invalid JSON in config {config}: {e}') from e
+		if not isinstance(data, dict):
+			raise typer.BadParameter(f'Config root must be a JSON object: {config}')
 		config_source = data.get('source_dir')
 		config_target = data.get('target_dir')
 		if isinstance(config_source, str) and config_source.strip():
 			source_dir = Path(config_source)
 		if isinstance(config_target, str) and config_target.strip():
 			target_dir = Path(config_target)
+		if isinstance(data.get('ignore_globs'), list):
+			ignore_globs.extend(str(g) for g in data['ignore_globs'])
 
 	# After config overrides, validate target_dir (required for all modes).
 	if target_dir is None:
