@@ -6,6 +6,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
+from .history import HistoryOperation
 from .models import PlannedAction
 
 
@@ -15,6 +16,12 @@ class ExecutionSummary:
 	moves: int = 0
 	skips: int = 0
 	errors: int = 0
+
+
+@dataclass(frozen=True)
+class ExecutionResult:
+	summary: ExecutionSummary
+	executed: list[HistoryOperation]
 
 
 def _target_exists(path: Path) -> bool:
@@ -37,7 +44,7 @@ def _label(text: str, *, color: str) -> str:
 	return f'\033[{code};1m{text}\033[0m'
 
 
-def execute_actions(actions: Iterable[PlannedAction], *, verbose: bool = False) -> ExecutionSummary:
+def execute_actions(actions: Iterable[PlannedAction], *, verbose: bool = False) -> ExecutionResult:
 	"""
 	Execute planned `copy`/`move` operations.
 
@@ -50,6 +57,7 @@ def execute_actions(actions: Iterable[PlannedAction], *, verbose: bool = False) 
 	moves = 0
 	skips = 0
 	errors = 0
+	executed: list[HistoryOperation] = []
 
 	for a in actions:
 		if a.action == 'skip':
@@ -75,11 +83,13 @@ def execute_actions(actions: Iterable[PlannedAction], *, verbose: bool = False) 
 			if a.action == 'copy':
 				shutil.copy2(a.source, a.target)
 				copies += 1
+				executed.append(HistoryOperation(action='copy', source=a.source, target=a.target))
 				if verbose:
 					print(f'{_label("COPY", color="green")}: {a.source} -> {a.target}')
 			elif a.action == 'move':
 				shutil.move(a.source, a.target)
 				moves += 1
+				executed.append(HistoryOperation(action='move', source=a.source, target=a.target))
 				if verbose:
 					print(f'{_label("MOVE", color="yellow")}: {a.source} -> {a.target}')
 			else:
@@ -99,4 +109,7 @@ def execute_actions(actions: Iterable[PlannedAction], *, verbose: bool = False) 
 				file=sys.stderr,
 			)
 
-	return ExecutionSummary(copies=copies, moves=moves, skips=skips, errors=errors)
+	return ExecutionResult(
+		summary=ExecutionSummary(copies=copies, moves=moves, skips=skips, errors=errors),
+		executed=executed,
+	)

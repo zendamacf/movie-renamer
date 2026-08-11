@@ -5,7 +5,7 @@ from pathlib import Path
 import typer
 
 from movie_renamer.cli import main
-from movie_renamer.executor import ExecutionSummary
+from movie_renamer.executor import ExecutionResult, ExecutionSummary
 
 
 def _write(path: Path, content: bytes) -> None:
@@ -34,16 +34,19 @@ def test_confirm_each_declines_all_actions(tmp_path: Path, monkeypatch) -> None:
 
 	from movie_renamer import executor as executor_mod
 
-	def fake_execute_actions(actions, *, verbose: bool = False) -> ExecutionSummary:
+	def fake_execute_actions(actions, *, verbose: bool = False) -> ExecutionResult:
 		for a in actions:
 			if a.source is not None and a.target is not None:
 				captured_actions.append((a.action, str(a.target)))
 		# All actions should have been converted to skips.
-		return ExecutionSummary(
-			copies=0,
-			moves=0,
-			skips=sum(1 for a in actions if a.action == 'skip'),
-			errors=0,
+		return ExecutionResult(
+			summary=ExecutionSummary(
+				copies=0,
+				moves=0,
+				skips=sum(1 for a in actions if a.action == 'skip'),
+				errors=0,
+			),
+			executed=[],
 		)
 
 	monkeypatch.setattr(typer, 'confirm', fake_confirm)
@@ -61,6 +64,9 @@ def test_confirm_each_declines_all_actions(tmp_path: Path, monkeypatch) -> None:
 		config=None,
 		verbose=False,
 		confirm_each=True,
+		list_batches=False,
+		undo_last=False,
+		undo=None,
 	)
 
 	# We should have prompted at least once.

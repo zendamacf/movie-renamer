@@ -35,4 +35,8 @@ def test_config_can_supply_source_and_target_dirs(tmp_path: Path) -> None:
 		default_lang='en',
 		config=cfg_path,
 		verbose=False,
+		confirm_each=False,
+		list_batches=False,
+		undo_last=False,
+		undo=None,
 	)

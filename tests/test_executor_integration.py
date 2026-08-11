@@ -33,7 +33,7 @@ def test_executor_copy_executes_video_and_subtitle(tmp_path: Path) -> None:
 		ignore_globs=[],
 	)
 
-	summary = execute_actions(actions)
+	summary = execute_actions(actions).summary
 	assert summary.copies == 2
 	assert summary.moves == 0
 
@@ -63,7 +63,7 @@ def test_executor_skips_non_primary_video(tmp_path: Path) -> None:
 		ignore_globs=[],
 	)
 
-	summary = execute_actions(actions)
+	summary = execute_actions(actions).summary
 	assert summary.copies == 1
 
 	expected_video = target_dir / 'Troy (2004)' / "Troy (2004) {edition-Director's Cut}.mkv"
@@ -93,7 +93,7 @@ def test_executor_collision_skips_without_overwriting(tmp_path: Path) -> None:
 		ignore_globs=[],
 	)
 
-	summary = execute_actions(actions)
+	summary = execute_actions(actions).summary
 	assert summary.copies == 0
 	assert summary.skips >= 1
 

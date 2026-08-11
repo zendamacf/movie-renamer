@@ -29,6 +29,15 @@ CONFIG_OPT = typer.Option(None, '--config', help='Optional JSON config.')
 CONFIRM_EACH_OPT = typer.Option(
 	False, '--confirm', help='When applying, prompt for each copy/move before executing.'
 )
+LIST_BATCHES_OPT = typer.Option(
+	False, '--list-batches', help='List rename batch history for the target directory.'
+)
+UNDO_LAST_OPT = typer.Option(
+	False, '--undo-last', help='Undo the most recent rename batch in the target directory.'
+)
+UNDO_OPT = typer.Option(
+	None, '--undo', help='Undo a rename batch by id (see --list-batches).'
+)
 
 
 def _label(text: str, *, color: str) -> str:
@@ -60,6 +69,9 @@ def main(
 	config: Path | None = CONFIG_OPT,
 	verbose: bool = VERBOSE_OPT,
 	confirm_each: bool = CONFIRM_EACH_OPT,
+	list_batches: bool = LIST_BATCHES_OPT,
+	undo_last: bool = UNDO_LAST_OPT,
+	undo: str | None = UNDO_OPT,
 ) -> None:
 	"""
 	Plan movie folder renames into a Plex/Jellyfin-friendly `Title (Year)/` structure.
@@ -85,19 +97,57 @@ def main(
 		if isinstance(config_target, str) and config_target.strip():
 			target_dir = Path(config_target)
 
-	# After config overrides, validate required paths.
-	if source_dir is None:
-		raise typer.BadParameter(
-			'Missing `source_dir` (provide it as an argument or via --config).'
-		)
-	if not source_dir.exists() or not source_dir.is_dir():
-		raise typer.BadParameter(f'`source_dir` must be an existing directory: {source_dir}')
+	# After config overrides, validate target_dir (required for all modes).
 	if target_dir is None:
 		raise typer.BadParameter(
 			'Missing `target_dir` (provide it as an argument or via --config).'
 		)
 	if not target_dir.exists() or not target_dir.is_dir():
 		raise typer.BadParameter(f'`target_dir` must be an existing directory: {target_dir}')
+
+	if undo_last and undo is not None:
+		raise typer.BadParameter('Flags --undo-last and --undo are mutually exclusive.')
+
+	if list_batches or undo_last or undo is not None:
+		from .history import latest_undoable_batch, load_batches, undo_batch
+
+		if list_batches:
+			batches = load_batches(target_dir)
+			if not batches:
+				typer.echo('No rename batches recorded.')
+				return
+			for batch in batches:
+				status = 'undone' if batch.undone_at else 'active'
+				copies = sum(1 for op in batch.operations if op.action == 'copy')
+				moves = sum(1 for op in batch.operations if op.action == 'move')
+				typer.echo(
+					f'{batch.id} [{status}] created={batch.created_at} '
+					f'copy={copies} move={moves} ops={len(batch.operations)}'
+				)
+			return
+
+		batch_id = undo
+		if undo_last:
+			latest = latest_undoable_batch(target_dir)
+			if latest is None:
+				raise typer.BadParameter('No undoable rename batches found.')
+			batch_id = latest.id
+
+		assert batch_id is not None
+		typer.echo(f'Undoing batch {batch_id}...')
+		undo_result = undo_batch(target_dir, batch_id, verbose=verbose)
+		typer.echo(
+			f'Summary (undo): REVERTED={undo_result.reverted} SKIP={undo_result.skips} '
+			f'ERRORS={undo_result.errors}'
+		)
+		return
+
+	if source_dir is None:
+		raise typer.BadParameter(
+			'Missing `source_dir` (provide it as an argument or via --config).'
+		)
+	if not source_dir.exists() or not source_dir.is_dir():
+		raise typer.BadParameter(f'`source_dir` must be an existing directory: {source_dir}')
 
 	if move and copy:
 		raise typer.BadParameter('Flags --move and --copy are mutually exclusive.')
@@ -183,11 +233,21 @@ def main(
 		actions = approved
 
 	typer.echo('Applying planned operations...')
-	result = execute_actions(actions, verbose=verbose)
+	from .history import append_batch
+
+	exec_result = execute_actions(actions, verbose=verbose)
+	summary = exec_result.summary
 	typer.echo(
-		f'Summary (executed): COPY={result.copies} MOVE={result.moves} SKIP={result.skips} '
-		f'ERRORS={result.errors}'
+		f'Summary (executed): COPY={summary.copies} MOVE={summary.moves} SKIP={summary.skips} '
+		f'ERRORS={summary.errors}'
 	)
+	if exec_result.executed and summary.errors == 0:
+		batch = append_batch(
+			target_dir,
+			source_dir=source_dir,
+			operations=exec_result.executed,
+		)
+		typer.echo(f'Batch recorded: {batch.id} ({len(exec_result.executed)} operations)')
 
 
 if __name__ == '__main__':
