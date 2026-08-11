@@ -26,6 +26,9 @@ IGNORE_OPT = typer.Option([], '--ignore', help='Additional glob patterns to skip
 DEFAULT_LANG_OPT = typer.Option('en', '--default-lang', help='Subtitle language when not detected.')
 VERBOSE_OPT = typer.Option(False, '-v', '--verbose', help='Show parsing details per folder.')
 CONFIG_OPT = typer.Option(None, '--config', help='Optional JSON config.')
+CONFIRM_EACH_OPT = typer.Option(
+	False, '--confirm', help='When applying, prompt for each copy/move before executing.'
+)
 
 
 def _label(text: str, *, color: str) -> str:
@@ -56,6 +59,7 @@ def main(
 	default_lang: str = DEFAULT_LANG_OPT,
 	config: Path | None = CONFIG_OPT,
 	verbose: bool = VERBOSE_OPT,
+	confirm_each: bool = CONFIRM_EACH_OPT,
 ) -> None:
 	"""
 	Plan movie folder renames into a Plex/Jellyfin-friendly `Title (Year)/` structure.
@@ -155,6 +159,28 @@ def main(
 			f'({VIDEO_EXT_HINT})'
 		)
 		return
+
+	if confirm_each:
+		from .models import PlannedAction
+
+		# Convert unapproved copy/move actions into skips before execution.
+		approved: list[PlannedAction] = []
+		for a in actions:
+			if a.action in {'copy', 'move'} and a.source is not None and a.target is not None:
+				prompt = f'Execute {a.action.upper()}: {a.source.name} -> {a.target}?'
+				if not typer.confirm(prompt, default=False):
+					approved.append(
+						PlannedAction(
+							source=a.source,
+							target=a.target,
+							action='skip',
+							reason='user declined',
+							metadata=a.metadata,
+						)
+					)
+					continue
+			approved.append(a)
+		actions = approved
 
 	typer.echo('Applying planned operations...')
 	result = execute_actions(actions, verbose=verbose)
