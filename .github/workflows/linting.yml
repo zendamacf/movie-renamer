@@ -23,7 +23,7 @@ jobs:
         run: make install
 
       - name: Lint
-        run: ruff check
+        run: make lint
 
       - name: Typecheck
-        run: ty check
+        run: make typecheck
