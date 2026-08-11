@@ -21,7 +21,11 @@ def test_apply_exits_nonzero_on_execution_errors(tmp_path: Path, monkeypatch) ->
 	target_dir.mkdir(parents=True, exist_ok=True)
 
 	movie_folder = source_dir / 'Single.White.Female.1992.1080p.BluRay.x265-RARBG'
-	_write(movie_folder / 'Single.White.Female.1992....mp4', b'video')
+	video_path = movie_folder / 'Single.White.Female.1992....mp4'
+	_write(video_path, b'video')
+	expected_target = (
+		target_dir / 'Single White Female (1992)' / 'Single White Female (1992).mp4'
+	)
 
 	from movie_renamer import executor as executor_mod
 
@@ -31,8 +35,8 @@ def test_apply_exits_nonzero_on_execution_errors(tmp_path: Path, monkeypatch) ->
 			executed=[
 				HistoryOperation(
 					action='copy',
-					source=movie_folder / 'Single.White.Female.1992....mp4',
-					target=target_dir / 'Single White Female (1992)' / 'Single White Female (1992).mp4',
+					source=video_path,
+					target=expected_target,
 				)
 			],
 		)
