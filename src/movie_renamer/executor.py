@@ -69,42 +69,45 @@ def execute_actions(actions: Iterable[PlannedAction], *, verbose: bool = False) 
 			skips += 1
 			continue
 
-		if _target_exists(a.target):
+		source = a.source.resolve()
+		target = a.target.resolve()
+
+		if _target_exists(target):
 			skips += 1
 			print(
-				f'{_label("WARN", color="yellow")}: target exists, skipping: {a.target}',
+				f'{_label("WARN", color="yellow")}: target exists, skipping: {target}',
 				file=sys.stderr,
 			)
 			continue
 
-		a.target.parent.mkdir(parents=True, exist_ok=True)
+		target.parent.mkdir(parents=True, exist_ok=True)
 
 		try:
 			if a.action == 'copy':
-				shutil.copy2(a.source, a.target)
+				shutil.copy2(source, target)
 				copies += 1
-				executed.append(HistoryOperation(action='copy', source=a.source, target=a.target))
+				executed.append(HistoryOperation(action='copy', source=source, target=target))
 				if verbose:
-					print(f'{_label("COPY", color="green")}: {a.source} -> {a.target}')
+					print(f'{_label("COPY", color="green")}: {source} -> {target}')
 			elif a.action == 'move':
-				shutil.move(a.source, a.target)
+				shutil.move(source, target)
 				moves += 1
-				executed.append(HistoryOperation(action='move', source=a.source, target=a.target))
+				executed.append(HistoryOperation(action='move', source=source, target=target))
 				if verbose:
-					print(f'{_label("MOVE", color="yellow")}: {a.source} -> {a.target}')
+					print(f'{_label("MOVE", color="yellow")}: {source} -> {target}')
 			else:
 				# Defensive: unknown action kind => skip.
 				skips += 1
 		except FileNotFoundError:
 			skips += 1
 			print(
-				f'{_label("WARN", color="yellow")}: source missing, skipping: {a.source}',
+				f'{_label("WARN", color="yellow")}: source missing, skipping: {source}',
 				file=sys.stderr,
 			)
-		except Exception as e:  # noqa: BLE001 - we want a best-effort summary
+		except OSError as e:
 			errors += 1
 			print(
-				f'{_label("ERROR", color="red")}: failed to {a.action} {a.source} -> {a.target}: '
+				f'{_label("ERROR", color="red")}: failed to {a.action} {source} -> {target}: '
 				f'{type(e).__name__}: {e}',
 				file=sys.stderr,
 			)

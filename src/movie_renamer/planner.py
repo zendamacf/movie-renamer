@@ -129,7 +129,7 @@ def plan_actions(
 			else:
 				continue
 
-			if target in used_targets:
+			if target.resolve() in used_targets:
 				actions.append(
 					PlannedAction(
 						source=f.path,
@@ -141,7 +141,7 @@ def plan_actions(
 				)
 				continue
 
-			used_targets.add(target)
+			used_targets.add(target.resolve())
 			actions.append(
 				PlannedAction(
 					source=f.path,
