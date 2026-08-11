@@ -30,3 +30,30 @@ make typecheck   # run type checking
 make run ARGS="--help"  # run the CLI module (pass CLI args via ARGS)
 ```
 
+## Changelog
+
+Release notes are built with [Towncrier](https://github.com/twisted/towncrier). Add a fragment when you ship a user-visible change:
+
+```bash
+make changelog-create NAME=123.feature
+```
+
+### Release
+
+1. Update the version in `pyproject.toml` and `src/movie_renamer/__init__.py`.
+2. Preview release notes (optional):
+
+   ```bash
+   make changelog-draft VERSION=0.1.0
+   ```
+
+3. Run the release script:
+
+   ```bash
+   make release VERSION=0.1.0
+   ```
+
+4. Commit, tag `v0.1.0`, and push.
+
+See `changes/README.md` for fragment types and naming.
+

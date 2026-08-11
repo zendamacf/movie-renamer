@@ -16,6 +16,7 @@ dev = [
   "ty>=0.0.70",
   "pytest-cov>=0.0.0",
   "pytest>=9.1.1",
+  "towncrier>=24.8.0",
 ]
 
 [project.scripts]
@@ -60,3 +61,32 @@ branch = true
 
 [tool.coverage.report]
 skip_empty = true
+
+[tool.towncrier]
+package = "movie_renamer"
+directory = "changes"
+filename = "CHANGELOG.md"
+title_format = "## {version} ({project_date})"
+start_string = "<!-- towncrier -->"
+issue_format = "#{issue}"
+underlines = ["", "", ""]
+
+[[tool.towncrier.type]]
+directory = "feature"
+name = "Features"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "bugfix"
+name = "Bug Fixes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "doc"
+name = "Documentation"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "misc"
+name = "Misc"
+showcontent = true
