@@ -3,7 +3,7 @@ name = "movie-renamer"
 version = "0.0.1"
 description = "Scan release-style movie folders and organise into Plex/Jellyfin-friendly layout."
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.12"
 license = { text = "MIT" }
 authors = [{ name = "Zach", email = "zach@example.com" }]
 dependencies = [
@@ -46,7 +46,7 @@ indent-style = "tab"
 [tool.ty]
 
 [tool.ty.environment]
-python-version = "3.14"
+python-version = "3.12"
 
 [tool.ty.rules]
 # Keep diagnostics non-fatal to match the previous `mypy` (non-strict) setup.
