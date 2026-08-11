@@ -100,3 +100,31 @@ def test_executor_collision_skips_without_overwriting(tmp_path: Path) -> None:
 	assert expected_target.read_bytes() == b'OLD-CONTENT'
 	# Copy mode should not delete sources.
 	assert video_path.exists()
+
+
+def test_executor_oserror_counts_as_error(tmp_path: Path, monkeypatch) -> None:
+	source_dir = tmp_path / 'src'
+	target_dir = tmp_path / 'dst'
+
+	folder = source_dir / 'Single.White.Female.1992.1080p.BluRay.x265-RARBG'
+	video_path = folder / 'Single.White.Female.1992....mp4'
+	_write(video_path, b'NEW-CONTENT')
+
+	actions = plan_actions(
+		folder_scans=scan_movie_folders(source_dir, recursive=False),
+		target_dir=target_dir,
+		operation='copy',
+		default_lang='en',
+		ignore_globs=[],
+	)
+
+	import shutil
+
+	def fail_copy(_src, _dst):
+		raise OSError('disk full')
+
+	monkeypatch.setattr(shutil, 'copy2', fail_copy)
+
+	summary = execute_actions(actions).summary
+	assert summary.errors == 1
+	assert summary.copies == 0
