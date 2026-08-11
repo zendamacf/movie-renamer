@@ -62,13 +62,11 @@ def plan_actions(
 	used_targets: set[Path] = set()
 
 	for folder_scan in folder_scans:
-		# Parse title/year/edition based on primary video file (or folder name fallback).
-		meta: MovieMetadata | None
+		primary = _pick_primary_video(folder_scan)
+		primary_path = primary[0] if primary else None
 		try:
-			primary = _pick_primary_video(folder_scan)
-			if primary:
-				video_path, _size = primary
-				meta = parse_movie_name(video_path.name, edition_phrases=edition_phrases)
+			if primary_path is not None:
+				meta = parse_movie_name(primary_path.name, edition_phrases=edition_phrases)
 			else:
 				meta = parse_movie_name(folder_scan.folder.name, edition_phrases=edition_phrases)
 		except ValueError:
@@ -85,10 +83,6 @@ def plan_actions(
 			continue
 
 		folder_target = target_dir / folder_name(meta)
-
-		# Plan primary artifacts first (video + subtitle).
-		primary = _pick_primary_video(folder_scan)
-		primary_path = primary[0] if primary else None
 
 		for f in folder_scan.files:
 			if _matches_any_glob(f.path, ignore_globs):
