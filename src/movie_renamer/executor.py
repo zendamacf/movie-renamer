@@ -60,10 +60,8 @@ def execute_actions(actions: Iterable[PlannedAction], *, verbose: bool = False) 
 
 		if _target_exists(target):
 			skips += 1
-			print(
-				f'{label("WARN", color="yellow", stream=sys.stderr)}: target exists, skipping: {target}',
-				file=sys.stderr,
-			)
+			warn = label('WARN', color='yellow', stream=sys.stderr)
+			print(f'{warn}: target exists, skipping: {target}', file=sys.stderr)
 			continue
 
 		target.parent.mkdir(parents=True, exist_ok=True)
@@ -74,27 +72,27 @@ def execute_actions(actions: Iterable[PlannedAction], *, verbose: bool = False) 
 				copies += 1
 				executed.append(HistoryOperation(action='copy', source=source, target=target))
 				if verbose:
-					print(f'{label("COPY", color="green", stream=sys.stderr)}: {source} -> {target}')
+					tag = label('COPY', color='green', stream=sys.stderr)
+					print(f'{tag}: {source} -> {target}')
 			elif a.action == 'move':
 				shutil.move(source, target)
 				moves += 1
 				executed.append(HistoryOperation(action='move', source=source, target=target))
 				if verbose:
-					print(f'{label("MOVE", color="yellow", stream=sys.stderr)}: {source} -> {target}')
+					tag = label('MOVE', color='yellow', stream=sys.stderr)
+					print(f'{tag}: {source} -> {target}')
 			else:
 				# Defensive: unknown action kind => skip.
 				skips += 1
 		except FileNotFoundError:
 			skips += 1
-			print(
-				f'{label("WARN", color="yellow", stream=sys.stderr)}: source missing, skipping: {source}',
-				file=sys.stderr,
-			)
+			warn = label('WARN', color='yellow', stream=sys.stderr)
+			print(f'{warn}: source missing, skipping: {source}', file=sys.stderr)
 		except OSError as e:
 			errors += 1
+			err = label('ERROR', color='red', stream=sys.stderr)
 			print(
-				f'{label("ERROR", color="red", stream=sys.stderr)}: failed to {a.action} {source} -> {target}: '
-				f'{type(e).__name__}: {e}',
+				f'{err}: failed to {a.action} {source} -> {target}: {type(e).__name__}: {e}',
 				file=sys.stderr,
 			)
 
