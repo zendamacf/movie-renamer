@@ -1,9 +1,16 @@
 from __future__ import annotations
 
+import pytest
 from pathlib import Path
 
 from movie_renamer.executor import execute_actions
-from movie_renamer.history import append_batch, latest_undoable_batch, load_batches, undo_batch
+from movie_renamer.history import (
+	append_batch,
+	history_file,
+	latest_undoable_batch,
+	load_batches,
+	undo_batch,
+)
 from movie_renamer.planner import plan_actions
 from movie_renamer.scanner import scan_movie_folders
 
@@ -75,3 +82,13 @@ def test_history_undo_move_batch(tmp_path: Path) -> None:
 	assert not expected.exists()
 	assert video_path.exists()
 	assert video_path.read_bytes() == b'video-content'
+
+
+def test_load_batches_raises_on_corrupt_history_file(tmp_path: Path) -> None:
+	target_dir = tmp_path / 'dst'
+	target_dir.mkdir(parents=True, exist_ok=True)
+	history_file(target_dir).parent.mkdir(parents=True, exist_ok=True)
+	history_file(target_dir).write_text('{not valid json', encoding='utf-8')
+
+	with pytest.raises(ValueError, match='Corrupt history file'):
+		load_batches(target_dir)
