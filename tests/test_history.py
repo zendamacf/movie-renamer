@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import pytest
 from pathlib import Path
+
+import pytest
 
 from movie_renamer.executor import execute_actions
 from movie_renamer.history import (

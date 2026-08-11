@@ -7,10 +7,11 @@ import sys
 import tempfile
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from filelock import FileLock
 from pathlib import Path
 from typing import Literal
 from uuid import uuid4
+
+from filelock import FileLock
 
 HistoryAction = Literal['copy', 'move']
 
