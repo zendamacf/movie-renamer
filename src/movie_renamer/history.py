@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import sys
+import tempfile
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 from uuid import uuid4
+
+from filelock import FileLock
 
 HistoryAction = Literal['copy', 'move']
 
@@ -80,17 +84,35 @@ def history_file(target_dir: Path) -> Path:
 	return history_dir(target_dir) / 'batches.json'
 
 
+def _lock_path(target_dir: Path) -> Path:
+	return history_dir(target_dir) / 'batches.json.lock'
+
+
 def _load_store(target_dir: Path) -> dict:
 	path = history_file(target_dir)
 	if not path.exists():
 		return {'batches': []}
-	return json.loads(path.read_text(encoding='utf-8'))
+	try:
+		return json.loads(path.read_text(encoding='utf-8'))
+	except json.JSONDecodeError as e:
+		raise ValueError(f'Corrupt history file: {path}') from e
 
 
 def _save_store(target_dir: Path, store: dict) -> None:
 	path = history_file(target_dir)
 	path.parent.mkdir(parents=True, exist_ok=True)
-	path.write_text(json.dumps(store, indent=2), encoding='utf-8')
+	payload = json.dumps(store, indent=2)
+	with tempfile.NamedTemporaryFile(
+		mode='w',
+		encoding='utf-8',
+		dir=path.parent,
+		delete=False,
+	) as tmp:
+		tmp.write(payload)
+		tmp.flush()
+		os.fsync(tmp.fileno())
+		tmp_path = Path(tmp.name)
+	tmp_path.replace(path)
 
 
 def load_batches(target_dir: Path) -> list[BatchRecord]:
@@ -112,20 +134,24 @@ def append_batch(
 		target_dir=target_dir,
 		operations=operations,
 	)
-	store = _load_store(target_dir)
-	store.setdefault('batches', []).append(batch.to_dict())
-	_save_store(target_dir, store)
+	lock = FileLock(_lock_path(target_dir))
+	with lock:
+		store = _load_store(target_dir)
+		store.setdefault('batches', []).append(batch.to_dict())
+		_save_store(target_dir, store)
 	return batch
 
 
 def _mark_batch_undone(target_dir: Path, batch_id: str) -> None:
-	store = _load_store(target_dir)
-	now = datetime.now(UTC).isoformat()
-	for batch in store.get('batches', []):
-		if batch['id'] == batch_id:
-			batch['undone_at'] = now
-			break
-	_save_store(target_dir, store)
+	lock = FileLock(_lock_path(target_dir))
+	with lock:
+		store = _load_store(target_dir)
+		now = datetime.now(UTC).isoformat()
+		for batch in store.get('batches', []):
+			if batch['id'] == batch_id:
+				batch['undone_at'] = now
+				break
+		_save_store(target_dir, store)
 
 
 def _remove_empty_parents(path: Path, *, stop_at: Path) -> None:
