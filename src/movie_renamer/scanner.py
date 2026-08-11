@@ -77,8 +77,14 @@ def classify_file(path: Path) -> FileCandidate | None:
 
 def _iter_movie_folders(source_dir: Path, recursive: bool) -> Iterable[Path]:
 	if recursive:
-		for dirpath, _dirnames, _filenames in os.walk(source_dir):
+		for dirpath, dirnames, _filenames in os.walk(source_dir):
 			dir_path = Path(dirpath)
+			# Prune junk/sample trees so we do not descend or scan them.
+			dirnames[:] = [
+				d
+				for d in dirnames
+				if d.lower() not in SAMPLE_FOLDER_NAMES and d.lower() not in JUNK_FOLDER_NAMES
+			]
 			if dir_path == source_dir:
 				continue
 			name_lower = dir_path.name.lower()

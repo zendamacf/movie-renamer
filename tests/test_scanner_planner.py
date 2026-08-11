@@ -158,3 +158,13 @@ def test_scan_movie_folders_recursive_finds_nested_movies(tmp_path: Path) -> Non
 	assert any(fs.folder == nested_movie for fs in recursive)
 	# "Other/" is treated as junk and should be skipped even in recursive mode.
 	assert all(fs.folder != other_folder for fs in recursive)
+
+
+def test_scan_recursive_does_not_descend_into_other_subfolders(tmp_path: Path) -> None:
+	source_dir = tmp_path / 'src'
+	nested_in_other = source_dir / 'Other' / 'Nested.Movie.2010'
+	nested_in_other.mkdir(parents=True, exist_ok=True)
+	(nested_in_other / 'Nested.Movie.2010.1080p.WEB-DL.mkv').write_bytes(b'video')
+
+	recursive = scan_movie_folders(source_dir, recursive=True)
+	assert all(fs.folder != nested_in_other for fs in recursive)
