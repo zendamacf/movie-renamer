@@ -117,7 +117,7 @@ def main(
 				typer.echo('No rename batches recorded.')
 				return
 			for batch in batches:
-				status = 'undone' if batch.undone_at else 'active'
+				status = 'undone' if batch.undone_at else batch.status
 				copies = sum(1 for op in batch.operations if op.action == 'copy')
 				moves = sum(1 for op in batch.operations if op.action == 'move')
 				typer.echo(
@@ -140,6 +140,8 @@ def main(
 			f'Summary (undo): REVERTED={undo_result.reverted} SKIP={undo_result.skips} '
 			f'ERRORS={undo_result.errors}'
 		)
+		if undo_result.errors > 0:
+			raise typer.Exit(code=1)
 		return
 
 	if source_dir is None:
@@ -241,13 +243,26 @@ def main(
 		f'Summary (executed): COPY={summary.copies} MOVE={summary.moves} SKIP={summary.skips} '
 		f'ERRORS={summary.errors}'
 	)
-	if exec_result.executed and summary.errors == 0:
+	exit_code = 0
+	if summary.errors > 0:
+		exit_code = 1
+
+	if exec_result.executed:
+		batch_status = 'completed' if summary.errors == 0 else 'partial'
 		batch = append_batch(
 			target_dir,
 			source_dir=source_dir,
 			operations=exec_result.executed,
+			status=batch_status,
 		)
-		typer.echo(f'Batch recorded: {batch.id} ({len(exec_result.executed)} operations)')
+		typer.echo(
+			f'Batch recorded ({batch_status}): {batch.id} ({len(exec_result.executed)} operations)'
+		)
+		if batch_status == 'partial':
+			typer.echo('Warning: batch had errors; undo will only revert successful operations.')
+
+	if exit_code:
+		raise typer.Exit(code=exit_code)
 
 
 if __name__ == '__main__':

@@ -42,6 +42,7 @@ class BatchRecord:
 	target_dir: Path
 	operations: list[HistoryOperation]
 	undone_at: str | None = None
+	status: Literal['completed', 'partial'] = 'completed'
 
 	@staticmethod
 	def from_dict(data: dict) -> BatchRecord:
@@ -52,6 +53,7 @@ class BatchRecord:
 			target_dir=Path(data['target_dir']),
 			operations=[HistoryOperation.from_dict(op) for op in data['operations']],
 			undone_at=data.get('undone_at'),
+			status=data.get('status', 'completed'),
 		)
 
 	def to_dict(self) -> dict:
@@ -62,6 +64,7 @@ class BatchRecord:
 			'target_dir': str(self.target_dir),
 			'operations': [op.to_dict() for op in self.operations],
 			'undone_at': self.undone_at,
+			'status': self.status,
 		}
 
 
@@ -103,6 +106,7 @@ def append_batch(
 	*,
 	source_dir: Path,
 	operations: list[HistoryOperation],
+	status: Literal['completed', 'partial'] = 'completed',
 ) -> BatchRecord:
 	now = datetime.now(UTC).isoformat()
 	batch = BatchRecord(
@@ -111,6 +115,7 @@ def append_batch(
 		source_dir=source_dir,
 		target_dir=target_dir,
 		operations=operations,
+		status=status,
 	)
 	store = _load_store(target_dir)
 	store.setdefault('batches', []).append(batch.to_dict())
