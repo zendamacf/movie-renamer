@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 from typing import Literal
 
 import typer
+
+from .terminal import label
 
 app = typer.Typer(add_completion=False)
 
@@ -38,22 +39,6 @@ UNDO_LAST_OPT = typer.Option(
 UNDO_OPT = typer.Option(
 	None, '--undo', help='Undo a rename batch by id (see --list-batches).'
 )
-
-
-def _label(text: str, *, color: str) -> str:
-	# Keep logging dependency-free: use ANSI when attached to a TTY.
-	# `color` is one of: red, yellow, green, bright_black, white.
-	color_codes = {
-		'red': '31',
-		'yellow': '33',
-		'green': '32',
-		'bright_black': '90',
-		'white': '37',
-	}
-	code = color_codes.get(color)
-	if code is None or not sys.stdout.isatty():
-		return text
-	return f'\033[{code};1m{text}\033[0m'
 
 
 @app.callback(invoke_without_command=True)
@@ -186,23 +171,23 @@ def main(
 		src_name = a.source.name if a.source else ''
 		if a.action == 'skip':
 			if a.source is None:
-				skip_label = _label('SKIP', color='bright_black')
+				skip_label = label('SKIP', color='bright_black')
 				reason = (a.reason or '').strip()
 				typer.echo(f'- {skip_label} {reason}'.strip())
 			else:
 				reason = a.reason or 'skipped'
-				skip_label = _label('SKIP', color='bright_black')
+				skip_label = label('SKIP', color='bright_black')
 				if reason == 'target collision':
-					skip_label = _label('SKIP', color='red')
+					skip_label = label('SKIP', color='red')
 				typer.echo(f'- {skip_label} {src_name} ({reason})')
 			continue
 
 		if a.action == 'copy':
-			action_label = _label('COPY', color='green')
+			action_label = label('COPY', color='green')
 		elif a.action == 'move':
-			action_label = _label('MOVE', color='yellow')
+			action_label = label('MOVE', color='yellow')
 		else:
-			action_label = _label(a.action.upper(), color='white')
+			action_label = label(a.action.upper(), color='white')
 		typer.echo(f'- {action_label} {src_name} -> {a.target}')
 		if verbose and a.metadata is not None:
 			typer.echo(

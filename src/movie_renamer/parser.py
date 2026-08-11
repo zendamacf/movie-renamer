@@ -112,13 +112,9 @@ def to_title_case(text: str) -> str:
 
 
 def extract_year(text: str) -> int | None:
-	matches = _YEAR_RE.findall(text)
-	if not matches:
-		return None
-	# `findall` returns tuples when the regex has groups.
-	# We want the full year number, so re-run with the full match.
-	year_matches = [int(m.group(0)) for m in _YEAR_RE.finditer(text)]
-	return year_matches[0] if year_matches else None
+	for match in _YEAR_RE.finditer(text):
+		return int(match.group(0))
+	return None
 
 
 def extract_edition(text: str, *, edition_phrases: list[str] | None = None) -> str | None:

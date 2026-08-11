@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .history import HistoryOperation
 from .models import PlannedAction
+from .terminal import label
 
 
 @dataclass(frozen=True)
@@ -27,21 +28,6 @@ class ExecutionResult:
 def _target_exists(path: Path) -> bool:
 	# Treat both files and directories as collisions.
 	return path.exists()
-
-
-def _label(text: str, *, color: str) -> str:
-	# Keep logging dependency-free: use ANSI when attached to a TTY.
-	# `color` is one of: red, yellow, green, bright_black.
-	color_codes = {
-		'red': '31',
-		'yellow': '33',
-		'green': '32',
-		'bright_black': '90',
-	}
-	code = color_codes.get(color)
-	if code is None or not sys.stderr.isatty():
-		return text
-	return f'\033[{code};1m{text}\033[0m'
 
 
 def execute_actions(actions: Iterable[PlannedAction], *, verbose: bool = False) -> ExecutionResult:
@@ -74,10 +60,8 @@ def execute_actions(actions: Iterable[PlannedAction], *, verbose: bool = False) 
 
 		if _target_exists(target):
 			skips += 1
-			print(
-				f'{_label("WARN", color="yellow")}: target exists, skipping: {target}',
-				file=sys.stderr,
-			)
+			warn = label('WARN', color='yellow', stream=sys.stderr)
+			print(f'{warn}: target exists, skipping: {target}', file=sys.stderr)
 			continue
 
 		target.parent.mkdir(parents=True, exist_ok=True)
@@ -88,27 +72,27 @@ def execute_actions(actions: Iterable[PlannedAction], *, verbose: bool = False) 
 				copies += 1
 				executed.append(HistoryOperation(action='copy', source=source, target=target))
 				if verbose:
-					print(f'{_label("COPY", color="green")}: {source} -> {target}')
+					tag = label('COPY', color='green', stream=sys.stderr)
+					print(f'{tag}: {source} -> {target}')
 			elif a.action == 'move':
 				shutil.move(source, target)
 				moves += 1
 				executed.append(HistoryOperation(action='move', source=source, target=target))
 				if verbose:
-					print(f'{_label("MOVE", color="yellow")}: {source} -> {target}')
+					tag = label('MOVE', color='yellow', stream=sys.stderr)
+					print(f'{tag}: {source} -> {target}')
 			else:
 				# Defensive: unknown action kind => skip.
 				skips += 1
 		except FileNotFoundError:
 			skips += 1
-			print(
-				f'{_label("WARN", color="yellow")}: source missing, skipping: {source}',
-				file=sys.stderr,
-			)
+			warn = label('WARN', color='yellow', stream=sys.stderr)
+			print(f'{warn}: source missing, skipping: {source}', file=sys.stderr)
 		except OSError as e:
 			errors += 1
+			err = label('ERROR', color='red', stream=sys.stderr)
 			print(
-				f'{_label("ERROR", color="red")}: failed to {a.action} {source} -> {target}: '
-				f'{type(e).__name__}: {e}',
+				f'{err}: failed to {a.action} {source} -> {target}: {type(e).__name__}: {e}',
 				file=sys.stderr,
 			)
 
