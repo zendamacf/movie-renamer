@@ -22,6 +22,21 @@ def _target_exists(path: Path) -> bool:
 	return path.exists()
 
 
+def _label(text: str, *, color: str) -> str:
+	# Keep logging dependency-free: use ANSI when attached to a TTY.
+	# `color` is one of: red, yellow, green, bright_black.
+	color_codes = {
+		'red': '31',
+		'yellow': '33',
+		'green': '32',
+		'bright_black': '90',
+	}
+	code = color_codes.get(color)
+	if code is None or not sys.stderr.isatty():
+		return text
+	return f'\033[{code};1m{text}\033[0m'
+
+
 def execute_actions(actions: Iterable[PlannedAction], *, verbose: bool = False) -> ExecutionSummary:
 	"""
 	Execute planned `copy`/`move` operations.
@@ -48,7 +63,10 @@ def execute_actions(actions: Iterable[PlannedAction], *, verbose: bool = False) 
 
 		if _target_exists(a.target):
 			skips += 1
-			print(f'WARN: target exists, skipping: {a.target}', file=sys.stderr)
+			print(
+				f'{_label("WARN", color="yellow")}: target exists, skipping: {a.target}',
+				file=sys.stderr,
+			)
 			continue
 
 		a.target.parent.mkdir(parents=True, exist_ok=True)
@@ -58,22 +76,26 @@ def execute_actions(actions: Iterable[PlannedAction], *, verbose: bool = False) 
 				shutil.copy2(a.source, a.target)
 				copies += 1
 				if verbose:
-					print(f'Copied: {a.source} -> {a.target}')
+					print(f'{_label("COPY", color="green")}: {a.source} -> {a.target}')
 			elif a.action == 'move':
 				shutil.move(a.source, a.target)
 				moves += 1
 				if verbose:
-					print(f'Moved: {a.source} -> {a.target}')
+					print(f'{_label("MOVE", color="yellow")}: {a.source} -> {a.target}')
 			else:
 				# Defensive: unknown action kind => skip.
 				skips += 1
 		except FileNotFoundError:
 			skips += 1
-			print(f'WARN: source missing, skipping: {a.source}', file=sys.stderr)
+			print(
+				f'{_label("WARN", color="yellow")}: source missing, skipping: {a.source}',
+				file=sys.stderr,
+			)
 		except Exception as e:  # noqa: BLE001 - we want a best-effort summary
 			errors += 1
 			print(
-				f'ERROR: failed to {a.action} {a.source} -> {a.target}: {type(e).__name__}: {e}',
+				f'{_label("ERROR", color="red")}: failed to {a.action} {a.source} -> {a.target}: '
+				f'{type(e).__name__}: {e}',
 				file=sys.stderr,
 			)
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from typing import Literal
 
@@ -15,7 +16,7 @@ SOURCE_DIR_ARG = typer.Argument(
 	None, help='Directory containing movie folders (optional when provided via --config).'
 )
 TARGET_DIR_ARG = typer.Argument(
-	None, help='Root output directory to organise into (optional when provided via --config).'
+	None, help='Root output directory to organise into (must exist; optional via --config).'
 )
 APPLY_OPT = typer.Option(False, '--apply', help='Execute filesystem changes.')
 MOVE_OPT = typer.Option(False, '--move', help='When applying, move files instead of copying.')
@@ -25,6 +26,22 @@ IGNORE_OPT = typer.Option([], '--ignore', help='Additional glob patterns to skip
 DEFAULT_LANG_OPT = typer.Option('en', '--default-lang', help='Subtitle language when not detected.')
 VERBOSE_OPT = typer.Option(False, '-v', '--verbose', help='Show parsing details per folder.')
 CONFIG_OPT = typer.Option(None, '--config', help='Optional JSON config.')
+
+
+def _label(text: str, *, color: str) -> str:
+	# Keep logging dependency-free: use ANSI when attached to a TTY.
+	# `color` is one of: red, yellow, green, bright_black, white.
+	color_codes = {
+		'red': '31',
+		'yellow': '33',
+		'green': '32',
+		'bright_black': '90',
+		'white': '37',
+	}
+	code = color_codes.get(color)
+	if code is None or not sys.stdout.isatty():
+		return text
+	return f'\033[{code};1m{text}\033[0m'
 
 
 @app.callback(invoke_without_command=True)
@@ -54,9 +71,6 @@ def main(
 	edition_phrases: list[str] | None = None
 	if source_dir is not None and not source_dir.exists():
 		raise typer.BadParameter(f'`source_dir` does not exist: {source_dir}')
-	if target_dir is not None and target_dir.exists():
-		# Keep behavior aligned with earlier `exists=False` argument: collisions are errors.
-		raise typer.BadParameter(f'`target_dir` already exists: {target_dir}')
 
 	if config is not None:
 		data = json.loads(config.read_text(encoding='utf-8'))
@@ -78,8 +92,8 @@ def main(
 		raise typer.BadParameter(
 			'Missing `target_dir` (provide it as an argument or via --config).'
 		)
-	if target_dir.exists():
-		raise typer.BadParameter(f'`target_dir` already exists: {target_dir}')
+	if not target_dir.exists() or not target_dir.is_dir():
+		raise typer.BadParameter(f'`target_dir` must be an existing directory: {target_dir}')
 
 	if move and copy:
 		raise typer.BadParameter('Flags --move and --copy are mutually exclusive.')
@@ -109,12 +123,24 @@ def main(
 		src_name = a.source.name if a.source else ''
 		if a.action == 'skip':
 			if a.source is None:
-				typer.echo(f'- SKIP {a.reason or ""}'.strip())
+				skip_label = _label('SKIP', color='bright_black')
+				reason = (a.reason or '').strip()
+				typer.echo(f'- {skip_label} {reason}'.strip())
 			else:
-				typer.echo(f'- SKIP {src_name} ({a.reason or "skipped"})')
+				reason = a.reason or 'skipped'
+				skip_label = _label('SKIP', color='bright_black')
+				if reason == 'target collision':
+					skip_label = _label('SKIP', color='red')
+				typer.echo(f'- {skip_label} {src_name} ({reason})')
 			continue
 
-		typer.echo(f'- {a.action.upper()} {src_name} -> {a.target}')
+		if a.action == 'copy':
+			action_label = _label('COPY', color='green')
+		elif a.action == 'move':
+			action_label = _label('MOVE', color='yellow')
+		else:
+			action_label = _label(a.action.upper(), color='white')
+		typer.echo(f'- {action_label} {src_name} -> {a.target}')
 		if verbose and a.metadata is not None:
 			typer.echo(
 				f'  metadata: title={a.metadata.title!r} year={a.metadata.year} '
