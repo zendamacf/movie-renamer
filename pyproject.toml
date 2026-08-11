@@ -14,6 +14,7 @@ dependencies = [
 dev = [
   "ruff>=0.0.0",
   "ty>=0.0.70",
+  "pytest-cov>=0.0.0",
   "pytest>=9.1.1",
 ]
 
@@ -29,7 +30,7 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+addopts = "-q --cov=src/movie_renamer --cov-report=term-missing --cov-report=xml:coverage.xml"
 
 [tool.ruff]
 target-version = "py311"

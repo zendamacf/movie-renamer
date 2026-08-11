@@ -17,6 +17,8 @@ dist/
 # Coverage
 .coverage
 .coverage.*
+coverage.xml
+htmlcov/
 
 # Editor/IDE
 .vscode/
