@@ -10,10 +10,13 @@ movie-renamer --help
 
 ## Config (optional)
 
-You can provide a JSON config file via `--config` to provide:
+If `config.json` exists in the working directory, it is loaded automatically and the CLI prints a short notice. It can provide:
 
-- `source_dir`: overrides the CLI `source_dir` argument
-- `target_dir`: overrides the CLI `target_dir` argument
+- `source_dir`: used when `--source-dir` is not passed
+- `target_dir`: used when `--target-dir` is not passed
+- `ignore_globs`: additional glob patterns to skip
+
+CLI flags override values from `config.json` when both are set.
 
 See `example-config.json` for the complete (currently supported) schema.
 

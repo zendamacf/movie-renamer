@@ -11,13 +11,18 @@ from .terminal import label
 app = typer.Typer(add_completion=False)
 
 VIDEO_EXT_HINT = 'Videos: mkv/mp4/avi/etc. Subtitles: .srt'
+DEFAULT_CONFIG_PATH = Path('config.json')
 
 # Typer parameters defined at module scope to satisfy ruff B008.
-SOURCE_DIR_ARG = typer.Argument(
-	None, help='Directory containing movie folders (optional when provided via --config).'
+SOURCE_DIR_OPT = typer.Option(
+	None,
+	'--source-dir',
+	help='Directory containing movie folders (optional when set in config.json).',
 )
-TARGET_DIR_ARG = typer.Argument(
-	None, help='Root output directory to organise into (must exist; optional via --config).'
+TARGET_DIR_OPT = typer.Option(
+	None,
+	'--target-dir',
+	help='Root output directory to organise into (must exist; optional when set in config.json).',
 )
 APPLY_OPT = typer.Option(False, '--apply', help='Execute filesystem changes.')
 MOVE_OPT = typer.Option(False, '--move', help='When applying, move files instead of copying.')
@@ -26,7 +31,6 @@ RECURSIVE_OPT = typer.Option(False, '--recursive', help='Descend into subfolders
 IGNORE_OPT = typer.Option([], '--ignore', help='Additional glob patterns to skip (repeatable).')
 DEFAULT_LANG_OPT = typer.Option('en', '--default-lang', help='Subtitle language when not detected.')
 VERBOSE_OPT = typer.Option(False, '-v', '--verbose', help='Show parsing details per folder.')
-CONFIG_OPT = typer.Option(None, '--config', help='Optional JSON config.')
 CONFIRM_EACH_OPT = typer.Option(
 	False, '--confirm', help='When applying, prompt for each copy/move before executing.'
 )
@@ -43,15 +47,14 @@ UNDO_OPT = typer.Option(
 
 @app.callback(invoke_without_command=True)
 def main(
-	source_dir: Path | None = SOURCE_DIR_ARG,
-	target_dir: Path | None = TARGET_DIR_ARG,
+	source_dir: Path | None = SOURCE_DIR_OPT,
+	target_dir: Path | None = TARGET_DIR_OPT,
 	apply: bool = APPLY_OPT,
 	move: bool = MOVE_OPT,
 	copy: bool = COPY_OPT,
 	recursive: bool = RECURSIVE_OPT,
 	ignore: list[str] = IGNORE_OPT,
 	default_lang: str = DEFAULT_LANG_OPT,
-	config: Path | None = CONFIG_OPT,
 	verbose: bool = VERBOSE_OPT,
 	confirm_each: bool = CONFIRM_EACH_OPT,
 	list_batches: bool = LIST_BATCHES_OPT,
@@ -71,20 +74,23 @@ def main(
 	ignore_globs: list[str] = list(ignore)
 	edition_phrases: list[str] | None = None
 
-	if config is not None:
-		if not config.exists():
-			raise typer.BadParameter(f'Config file does not exist: {config}')
+	if DEFAULT_CONFIG_PATH.exists():
+		typer.echo(f'Using settings from {DEFAULT_CONFIG_PATH}')
 		try:
-			data = json.loads(config.read_text(encoding='utf-8'))
+			data = json.loads(DEFAULT_CONFIG_PATH.read_text(encoding='utf-8'))
 		except json.JSONDecodeError as e:
-			raise typer.BadParameter(f'Invalid JSON in config {config}: {e}') from e
+			raise typer.BadParameter(
+				f'Invalid JSON in config {DEFAULT_CONFIG_PATH}: {e}'
+			) from e
 		if not isinstance(data, dict):
-			raise typer.BadParameter(f'Config root must be a JSON object: {config}')
+			raise typer.BadParameter(
+				f'Config root must be a JSON object: {DEFAULT_CONFIG_PATH}'
+			)
 		config_source = data.get('source_dir')
 		config_target = data.get('target_dir')
-		if isinstance(config_source, str) and config_source.strip():
+		if source_dir is None and isinstance(config_source, str) and config_source.strip():
 			source_dir = Path(config_source)
-		if isinstance(config_target, str) and config_target.strip():
+		if target_dir is None and isinstance(config_target, str) and config_target.strip():
 			target_dir = Path(config_target)
 		if isinstance(data.get('ignore_globs'), list):
 			ignore_globs.extend(str(g) for g in data['ignore_globs'])
@@ -92,7 +98,7 @@ def main(
 	# After config overrides, validate target_dir (required for all modes).
 	if target_dir is None:
 		raise typer.BadParameter(
-			'Missing `target_dir` (provide it as an argument or via --config).'
+			'Missing `target_dir` (provide --target-dir or set `target_dir` in config.json).'
 		)
 	if not target_dir.exists() or not target_dir.is_dir():
 		raise typer.BadParameter(f'`target_dir` must be an existing directory: {target_dir}')
@@ -138,7 +144,7 @@ def main(
 
 	if source_dir is None:
 		raise typer.BadParameter(
-			'Missing `source_dir` (provide it as an argument or via --config).'
+			'Missing `source_dir` (provide --source-dir or set `source_dir` in config.json).'
 		)
 	if not source_dir.exists() or not source_dir.is_dir():
 		raise typer.BadParameter(f'`source_dir` must be an existing directory: {source_dir}')
