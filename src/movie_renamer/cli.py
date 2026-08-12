@@ -238,7 +238,6 @@ def main(
 							source=a.source,
 							target=a.target,
 							action='skip',
-							reason='user declined',
 							metadata=a.metadata,
 						)
 					)
