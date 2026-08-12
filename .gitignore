@@ -22,6 +22,7 @@ htmlcov/
 
 # History
 batches.json
+.movie-renamer/
 
 # Editor/IDE
 .vscode/

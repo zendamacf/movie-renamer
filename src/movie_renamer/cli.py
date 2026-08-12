@@ -10,6 +10,7 @@ from .terminal import label
 app = typer.Typer(add_completion=False)
 
 VIDEO_EXT_HINT = 'Videos: mkv/mp4/avi/etc. Subtitles: .srt'
+SILENT_SKIP_EXTS = {'.txt', '.jpg', '.exe'}
 DEFAULT_CONFIG_PATH = Path('config.json')
 
 # Typer parameters defined at module scope to satisfy ruff B008.
@@ -184,6 +185,7 @@ def main(
 	subtitle_exts = {'.srt', '.vtt'}
 	skip_label = label('SKIP', color='bright_black')
 	subtitle_skip_label = label('SKIP', color='orange')
+	misc_count = 0
 	# Keep output stable/deterministic for tests and diffability.
 	for movie_folder in sorted(movie_folders, key=lambda p: str(p)):
 		subtitle_skips: list[str] = []
@@ -200,7 +202,12 @@ def main(
 				# Should not happen, but keep output usable if paths are oddly mounted.
 				rel_path = str(file_path)
 
-			if file_path.suffix.lower() in subtitle_exts:
+			ext = file_path.suffix.lower()
+			if ext in SILENT_SKIP_EXTS:
+				misc_count += 1
+				continue
+
+			if ext in subtitle_exts:
 				subtitle_skips.append(rel_path)
 			else:
 				other_skips.append(rel_path)
@@ -212,8 +219,11 @@ def main(
 		for rel_path in other_skips:
 			typer.echo(f'- {skip_label} {rel_path}')
 
+	misc_suffix = f' MISC={misc_count}' if misc_count else ''
 	if not apply:
-		typer.echo(f'Summary (dry-run): MOVE={counts["move"]} SKIP={counts["skip"]} ({VIDEO_EXT_HINT})')
+		typer.echo(
+			f'Summary (dry-run): MOVE={counts["move"]} SKIP={counts["skip"]}{misc_suffix} ({VIDEO_EXT_HINT})'
+		)
 		return
 
 	if confirm_each:
@@ -238,7 +248,8 @@ def main(
 		actions = approved
 
 	typer.echo('Applying planned operations...')
-	from .history import append_batch
+	from .cleanup import archive_and_remove_movie_folders, handled_movie_folders
+	from .history import append_batch, archive_dir_for_batch, new_batch_id
 
 	exec_result = execute_actions(actions, verbose=verbose)
 	summary = exec_result.summary
@@ -249,10 +260,20 @@ def main(
 
 	if exec_result.executed:
 		batch_status = 'completed' if summary.errors == 0 else 'partial'
+		batch_id = new_batch_id()
+		handled_folders = handled_movie_folders(source_dir, folder_scans, exec_result.executed)
+		archived_files = archive_and_remove_movie_folders(
+			source_dir,
+			handled_folders,
+			archive_dir=archive_dir_for_batch(batch_id),
+		)
 		batch = append_batch(
 			target_dir,
 			source_dir=source_dir,
 			operations=exec_result.executed,
+			batch_id=batch_id,
+			archived_files=archived_files,
+			removed_directories=sorted(handled_folders, key=str),
 			status=batch_status,
 		)
 		typer.echo(f'Batch recorded ({batch_status}): {batch.id} ({len(exec_result.executed)} operations)')

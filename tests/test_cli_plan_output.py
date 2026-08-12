@@ -88,7 +88,11 @@ def test_planned_operations_skip_logs_all_nested_files(tmp_path: Path, monkeypat
 
 	skip_lines = [m for m in messages if m.startswith('- SKIP ')]
 	assert any('Movie.Title.2020.1080p.BluRay.x265-RARBG/Nested/Movie.Title.2020.en.srt' in m for m in skip_lines)
-	assert any('Movie.Title.2020.1080p.BluRay.x265-RARBG/Nested/something.jpg' in m for m in skip_lines)
+	assert not any('something.jpg' in m for m in skip_lines)
+
+	summary_lines = [m for m in messages if m.startswith('Summary (dry-run):')]
+	assert summary_lines
+	assert 'MISC=1' in summary_lines[0]
 
 	video_rel = video_path.relative_to(source_dir).as_posix()
 	sub_rel = sub_path.relative_to(source_dir).as_posix()

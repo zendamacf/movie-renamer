@@ -17,6 +17,25 @@ HistoryAction = Literal['move']
 
 
 @dataclass(frozen=True)
+class ArchivedFile:
+	source: Path
+	archive: Path
+
+	@staticmethod
+	def from_dict(data: dict[str, str]) -> ArchivedFile:
+		return ArchivedFile(
+			source=Path(data['source']),
+			archive=Path(data['archive']),
+		)
+
+	def to_dict(self) -> dict[str, str]:
+		return {
+			'source': str(self.source),
+			'archive': str(self.archive),
+		}
+
+
+@dataclass(frozen=True)
 class HistoryOperation:
 	action: HistoryAction
 	source: Path
@@ -48,6 +67,8 @@ class BatchRecord:
 	source_dir: Path
 	target_dir: Path
 	operations: list[HistoryOperation]
+	archived_files: list[ArchivedFile]
+	removed_directories: list[Path]
 	undone_at: str | None = None
 	status: Literal['completed', 'partial'] = 'completed'
 
@@ -59,6 +80,8 @@ class BatchRecord:
 			source_dir=Path(data['source_dir']),
 			target_dir=Path(data['target_dir']),
 			operations=[HistoryOperation.from_dict(op) for op in data['operations']],
+			archived_files=[ArchivedFile.from_dict(f) for f in data.get('archived_files', [])],
+			removed_directories=[Path(p) for p in data.get('removed_directories', [])],
 			undone_at=data.get('undone_at'),
 			status=data.get('status', 'completed'),
 		)
@@ -70,6 +93,8 @@ class BatchRecord:
 			'source_dir': str(self.source_dir),
 			'target_dir': str(self.target_dir),
 			'operations': [op.to_dict() for op in self.operations],
+			'archived_files': [f.to_dict() for f in self.archived_files],
+			'removed_directories': [str(p) for p in self.removed_directories],
 			'undone_at': self.undone_at,
 			'status': self.status,
 		}
@@ -126,20 +151,34 @@ def load_batches() -> list[BatchRecord]:
 	return [BatchRecord.from_dict(b) for b in store.get('batches', [])]
 
 
+def archive_dir_for_batch(batch_id: str) -> Path:
+	return history_dir() / '.movie-renamer' / 'archive' / batch_id
+
+
+def new_batch_id() -> str:
+	now = datetime.now(UTC).isoformat()
+	return f'{now}-{uuid4().hex[:8]}'
+
+
 def append_batch(
 	target_dir: Path,
 	*,
 	source_dir: Path,
 	operations: list[HistoryOperation],
+	batch_id: str | None = None,
+	archived_files: list[ArchivedFile] | None = None,
+	removed_directories: list[Path] | None = None,
 	status: Literal['completed', 'partial'] = 'completed',
 ) -> BatchRecord:
 	now = datetime.now(UTC).isoformat()
 	batch = BatchRecord(
-		id=f'{now}-{uuid4().hex[:8]}',
+		id=batch_id or new_batch_id(),
 		created_at=now,
 		source_dir=source_dir,
 		target_dir=target_dir,
 		operations=operations,
+		archived_files=archived_files or [],
+		removed_directories=removed_directories or [],
 		status=status,
 	)
 	lock = FileLock(_lock_path())
@@ -217,9 +256,46 @@ def undo_batch(
 			)
 
 	if errors == 0:
+		errors += _restore_archived_files(batch, verbose=verbose)
+
+	if errors == 0:
 		_mark_batch_undone(batch_id)
 
 	return UndoSummary(reverted=reverted, skips=skips, errors=errors)
+
+
+def _restore_archived_files(batch: BatchRecord, *, verbose: bool = False) -> int:
+	errors = 0
+	for archived in batch.archived_files:
+		try:
+			if not archived.archive.exists():
+				if verbose:
+					print(f'SKIP: archived file missing: {archived.archive}', file=sys.stderr)
+				continue
+			if archived.source.exists():
+				if verbose:
+					print(f'SKIP: source already exists: {archived.source}', file=sys.stderr)
+				continue
+			archived.source.parent.mkdir(parents=True, exist_ok=True)
+			shutil.copy2(archived.archive, archived.source)
+			archived.archive.unlink()
+			if verbose:
+				print(f'UNDO ARCHIVE: {archived.archive} -> {archived.source}')
+		except Exception as e:  # noqa: BLE001
+			errors += 1
+			print(
+				f'ERROR: failed to restore archived file {archived.source}: {type(e).__name__}: {e}',
+				file=sys.stderr,
+			)
+
+	archive_root = archive_dir_for_batch(batch.id)
+	if archive_root.exists() and errors == 0:
+		try:
+			shutil.rmtree(archive_root)
+		except OSError:
+			pass
+
+	return errors
 
 
 def latest_undoable_batch() -> BatchRecord | None:
