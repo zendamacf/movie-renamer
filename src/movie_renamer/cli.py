@@ -177,16 +177,6 @@ def main(
 	for a in actions:
 		src_name = a.source.name if a.source else ''
 		if a.action == 'skip':
-			if a.source is None:
-				skip_label = label('SKIP', color='bright_black')
-				reason = (a.reason or '').strip()
-				typer.echo(f'- {skip_label} {reason}'.strip())
-			else:
-				reason = a.reason or 'skipped'
-				skip_label = label('SKIP', color='bright_black')
-				if reason == 'target collision':
-					skip_label = label('SKIP', color='red')
-				typer.echo(f'- {skip_label} {src_name} ({reason})')
 			continue
 
 		if a.action == 'move':
@@ -202,6 +192,30 @@ def main(
 			)
 
 	typer.echo('')
+
+	# Extra skip logging:
+	# Print every file found under each movie folder (including nested directories) that
+	# was not part of the planned MOVE sources. This helps spot when files are missed.
+	moved_sources = {
+		a.source.resolve()
+		for a in actions
+		if a.action == 'move' and a.source is not None and a.target is not None
+	}
+	movie_folders = {fs.folder.resolve() for fs in folder_scans}
+	skip_label = label('SKIP', color='bright_black')
+	# Keep output stable/deterministic for tests and diffability.
+	for movie_folder in sorted(movie_folders, key=lambda p: str(p)):
+		for file_path in sorted(movie_folder.rglob('*'), key=lambda p: str(p)):
+			if not file_path.is_file():
+				continue
+			if file_path.resolve() in moved_sources:
+				continue
+			try:
+				rel_path = file_path.relative_to(source_dir).as_posix()
+			except ValueError:
+				# Should not happen, but keep output usable if paths are oddly mounted.
+				rel_path = str(file_path)
+			typer.echo(f'- {skip_label} {rel_path}')
 
 	if not apply:
 		typer.echo(
@@ -224,7 +238,6 @@ def main(
 							source=a.source,
 							target=a.target,
 							action='skip',
-							reason='user declined',
 							metadata=a.metadata,
 						)
 					)

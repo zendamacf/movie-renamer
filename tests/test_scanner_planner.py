@@ -38,7 +38,7 @@ def test_planner_plans_primary_video_and_skips_promo_and_junk(tmp_path: Path) ->
 	assert any(a.action == 'move' and a.target == target_video for a in actions)
 
 	assert any(
-		a.action == 'skip' and a.source == promo_path and a.reason == 'promo image' for a in actions
+		a.action == 'skip' and a.source == promo_path for a in actions
 	)
 	assert not any(a.source == junk_video for a in actions)
 
@@ -91,7 +91,7 @@ def test_planner_primary_video_selection_and_edition_suffix(tmp_path: Path) -> N
 	)
 
 	assert any(
-		a.action == 'skip' and a.source == video_secondary and a.reason == 'non-primary video'
+		a.action == 'skip' and a.source == video_secondary
 		for a in actions
 	)
 
@@ -149,7 +149,7 @@ def test_planner_subtitle_lang_inference_eng_and_english(tmp_path: Path) -> None
 	skipped_sources = {
 		a.source
 		for a in actions
-		if a.action == 'skip' and a.reason == 'target collision' and a.source is not None
+		if a.action == 'skip' and a.source is not None
 	}
 
 	# Collision: both ENG + ENGLISH map to the same target filename; exactly one wins.
@@ -245,7 +245,7 @@ def test_scan_standalone_videos_are_planned_separately(tmp_path: Path) -> None:
 
 	moved = {a.source for a in actions if a.action == 'move'}
 	assert moved == {first, second}
-	assert not any(a.action == 'skip' and a.reason == 'non-primary video' for a in actions)
+	assert not any(a.action == 'skip' for a in actions)
 
 
 def test_scan_recursive_does_not_descend_into_other_subfolders(tmp_path: Path) -> None:

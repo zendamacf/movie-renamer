@@ -29,5 +29,4 @@ class PlannedAction:
 	source: Path | None
 	target: Path | None
 	action: PlannedActionKind
-	reason: str | None
 	metadata: MovieMetadata | None = None

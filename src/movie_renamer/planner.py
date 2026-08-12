@@ -73,7 +73,6 @@ def plan_actions(
 					source=None,
 					target=None,
 					action='skip',
-					reason=f'could not parse metadata for folder {folder_scan.folder.name!r}',
 				)
 			)
 			continue
@@ -87,7 +86,6 @@ def plan_actions(
 						source=f.path,
 						target=None,
 						action='skip',
-						reason='ignored by glob pattern',
 						metadata=meta,
 					)
 				)
@@ -99,7 +97,6 @@ def plan_actions(
 						source=f.path,
 						target=None,
 						action='skip',
-						reason='promo image',
 						metadata=meta,
 					)
 				)
@@ -112,7 +109,6 @@ def plan_actions(
 							source=f.path,
 							target=None,
 							action='skip',
-							reason='non-primary video',
 							metadata=meta,
 						)
 					)
@@ -136,7 +132,6 @@ def plan_actions(
 						source=f.path,
 						target=target,
 						action='skip',
-						reason='target collision',
 						metadata=meta,
 					)
 				)
@@ -148,7 +143,6 @@ def plan_actions(
 					source=f.path,
 					target=target,
 					action='move',
-					reason=None,
 					metadata=meta,
 				)
 			)
