@@ -164,7 +164,7 @@ def main(
 			continue
 
 		if a.action == 'move':
-			action_label = label('MOVE', color='yellow')
+			action_label = label('MOVE', color='blue')
 		else:
 			action_label = label(a.action.upper(), color='white')
 		dest = _display_target(a.target, target_dir)

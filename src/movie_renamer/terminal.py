@@ -9,6 +9,7 @@ def label(text: str, *, color: str, stream: object = sys.stdout) -> str:
 		'red': '31',
 		'yellow': '33',
 		'orange': '33',
+		'blue': '34',
 		'green': '32',
 		'bright_black': '90',
 		'white': '37',

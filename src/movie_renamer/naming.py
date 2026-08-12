@@ -16,4 +16,7 @@ def video_name(meta: MovieMetadata, ext: str) -> str:
 
 
 def subtitle_name(meta: MovieMetadata, lang: str = 'en') -> str:
-	return f'{folder_name(meta)}.{lang}.srt'
+	base = folder_name(meta)
+	if meta.edition:
+		return f'{base} {{edition-{meta.edition}}}.{lang}.srt'
+	return f'{base}.{lang}.srt'

@@ -251,11 +251,42 @@ def test_planner_subtitles_match_movie_edition_when_present(tmp_path: Path) -> N
 		ignore_globs=[],
 	)
 
-	expected_target = target_dir / 'Troy (2004)' / 'Troy (2004).en.srt'
+	expected_target = target_dir / 'Troy (2004)' / "Troy (2004) {edition-Director's Cut}.en.srt"
 
 	assert any(a.action == 'move' and a.target == expected_target and a.source == sub_good for a in actions)
 	assert any(a.action == 'skip' and a.source == sub_bad for a in actions)
 	assert not any(a.action == 'move' and a.source == sub_bad for a in actions)
+
+
+def test_planner_subs_folder_subtitles_ignore_edition_filter(tmp_path: Path) -> None:
+	source_dir = tmp_path / 'src'
+	target_dir = tmp_path / 'dst'
+
+	folder = source_dir / 'The.Last.Of.The.Mohicans.1992.DC.1080p.BluRay.x265-RARBG'
+	video_path = folder / 'The.Last.Of.The.Mohicans.1992.DC.1080p.BluRay.x265-RARBG.mp4'
+	sub_path = folder / 'Subs' / '16_English.srt'
+
+	_write(video_path, b'video-bytes' * 10)
+	_write(sub_path, b'subtitle-bytes')
+
+	actions = plan_actions(
+		folder_scans=scan_movie_folders(source_dir, recursive=False),
+		target_dir=target_dir,
+		default_lang='en',
+		ignore_globs=[],
+	)
+
+	expected_video = (
+		target_dir / 'The Last of the Mohicans (1992)' / "The Last of the Mohicans (1992) {edition-Director's Cut}.mp4"
+	)
+	expected_sub = (
+		target_dir
+		/ 'The Last of the Mohicans (1992)'
+		/ "The Last of the Mohicans (1992) {edition-Director's Cut}.en.srt"
+	)
+
+	assert any(a.action == 'move' and a.target == expected_video and a.source == video_path for a in actions)
+	assert any(a.action == 'move' and a.target == expected_sub and a.source == sub_path for a in actions)
 
 
 def test_scan_movie_folders_recursive_finds_nested_movies(tmp_path: Path) -> None:

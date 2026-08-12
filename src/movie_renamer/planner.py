@@ -28,6 +28,15 @@ def _pick_primary_video(folder_scan: FolderScan) -> tuple[Path, int] | None:
 	return max(videos, key=lambda t: t[1])
 
 
+def _is_in_subs_folder(path: Path) -> bool:
+	return path.parent.name.lower() == 'subs'
+
+
+def _subtitle_looks_release_named(subtitle_path: Path, meta: MovieMetadata) -> bool:
+	# Release-style sidecars usually include the movie year (e.g. `Troy.2004.en.srt`).
+	return str(meta.year) in subtitle_path.stem
+
+
 def _try_parse_metadata_from_video_or_folder(folder_scan: FolderScan) -> MovieMetadata | None:
 	primary = _pick_primary_video(folder_scan)
 	if primary:
@@ -116,12 +125,16 @@ def plan_actions(
 
 				target = folder_target / video_name(meta, ext=f.path.suffix.lstrip('.'))
 			elif f.kind == 'subtitle':
-				# If the primary movie indicates an edition (e.g. "Director's Cut"), try to ensure the
-				# subtitle filenames match that same edition. This prevents mixing up subtitle tracks
-				# across multiple releases/editions in the same folder.
-				if meta.edition is not None:
+				# If the primary movie indicates an edition (e.g. "Director's Cut"), try to ensure
+				# release-style subtitle sidecars match that same edition. Generic language files
+				# in `Subs/` (e.g. `16_English.srt`) are not edition-tagged and should still move.
+				if meta.edition is not None and not _is_in_subs_folder(f.path):
 					subtitle_edition = extract_edition(f.path.name, edition_phrases=edition_phrases)
-					if subtitle_edition != meta.edition:
+					edition_mismatch = subtitle_edition is not None and subtitle_edition != meta.edition
+					missing_edition_on_release_named = subtitle_edition is None and _subtitle_looks_release_named(
+						f.path, meta
+					)
+					if edition_mismatch or missing_edition_on_release_named:
 						actions.append(
 							PlannedAction(
 								source=f.path,

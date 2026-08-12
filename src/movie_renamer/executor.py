@@ -73,7 +73,7 @@ def execute_actions(actions: Iterable[PlannedAction], *, verbose: bool = False) 
 			moves += 1
 			executed.append(HistoryOperation(action='move', source=source, target=target))
 			if verbose:
-				tag = label('MOVE', color='yellow', stream=sys.stderr)
+				tag = label('MOVE', color='blue', stream=sys.stderr)
 				print(f'{tag}: {source} -> {target}')
 		except FileNotFoundError:
 			skips += 1
