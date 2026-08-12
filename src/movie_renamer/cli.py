@@ -25,14 +25,12 @@ TARGET_DIR_OPT = typer.Option(
 	help='Root output directory to organise into (must exist; optional when set in config.json).',
 )
 APPLY_OPT = typer.Option(False, '--apply', help='Execute filesystem changes.')
-MOVE_OPT = typer.Option(False, '--move', help='When applying, move files instead of copying.')
-COPY_OPT = typer.Option(False, '--copy', help='When applying, copy files instead of moving.')
 RECURSIVE_OPT = typer.Option(False, '--recursive', help='Descend into subfolders like "Other/".')
 IGNORE_OPT = typer.Option([], '--ignore', help='Additional glob patterns to skip (repeatable).')
 DEFAULT_LANG_OPT = typer.Option('en', '--default-lang', help='Subtitle language when not detected.')
 VERBOSE_OPT = typer.Option(False, '-v', '--verbose', help='Show parsing details per folder.')
 CONFIRM_EACH_OPT = typer.Option(
-	False, '--confirm', help='When applying, prompt for each copy/move before executing.'
+	False, '--confirm', help='When applying, prompt for each move before executing.'
 )
 LIST_BATCHES_OPT = typer.Option(
 	False, '--list-batches', help='List rename batch history for the target directory.'
@@ -50,8 +48,6 @@ def main(
 	source_dir: Path | None = SOURCE_DIR_OPT,
 	target_dir: Path | None = TARGET_DIR_OPT,
 	apply: bool = APPLY_OPT,
-	move: bool = MOVE_OPT,
-	copy: bool = COPY_OPT,
 	recursive: bool = RECURSIVE_OPT,
 	ignore: list[str] = IGNORE_OPT,
 	default_lang: str = DEFAULT_LANG_OPT,
@@ -149,14 +145,8 @@ def main(
 	if not source_dir.exists() or not source_dir.is_dir():
 		raise typer.BadParameter(f'`source_dir` must be an existing directory: {source_dir}')
 
-	if move and copy:
-		raise typer.BadParameter('Flags --move and --copy are mutually exclusive.')
-
-	operation: Literal['copy', 'move'] = 'copy'
-	if move:
-		operation = 'move'
-	elif copy:
-		operation = 'copy'
+	# Only support moving files
+	operation: Literal['move'] = 'move'
 
 	folder_scans = scan_movie_folders(source_dir, recursive=recursive)
 	actions = plan_actions(
@@ -168,11 +158,11 @@ def main(
 		edition_phrases=edition_phrases,
 	)
 
-	counts: dict[str, int] = {'copy': 0, 'move': 0, 'skip': 0}
+	counts: dict[str, int] = {'move': 0, 'skip': 0}
 	for a in actions:
-		counts[a.action] += 1
+		counts[a.action] = counts.get(a.action, 0) + 1
 
-	typer.echo(f'Planned operations (operation={operation}):')
+	typer.echo('Planned operations (move):')
 	for a in actions:
 		src_name = a.source.name if a.source else ''
 		if a.action == 'skip':
@@ -188,9 +178,7 @@ def main(
 				typer.echo(f'- {skip_label} {src_name} ({reason})')
 			continue
 
-		if a.action == 'copy':
-			action_label = label('COPY', color='green')
-		elif a.action == 'move':
+		if a.action == 'move':
 			action_label = label('MOVE', color='yellow')
 		else:
 			action_label = label(a.action.upper(), color='white')
@@ -205,7 +193,7 @@ def main(
 
 	if not apply:
 		typer.echo(
-			f'Summary (dry-run): COPY={counts["copy"]} MOVE={counts["move"]} SKIP={counts["skip"]} '
+			f'Summary (dry-run): MOVE={counts["move"]} SKIP={counts["skip"]} '
 			f'({VIDEO_EXT_HINT})'
 		)
 		return
@@ -213,10 +201,10 @@ def main(
 	if confirm_each:
 		from .models import PlannedAction
 
-		# Convert unapproved copy/move actions into skips before execution.
+		# Convert unapproved move actions into skips before execution.
 		approved: list[PlannedAction] = []
 		for a in actions:
-			if a.action in {'copy', 'move'} and a.source is not None and a.target is not None:
+			if a.action == 'move' and a.source is not None and a.target is not None:
 				prompt = f'Execute {a.action.upper()}: {a.source.name} -> {a.target}?'
 				if not typer.confirm(prompt, default=False):
 					approved.append(
@@ -238,7 +226,7 @@ def main(
 	exec_result = execute_actions(actions, verbose=verbose)
 	summary = exec_result.summary
 	typer.echo(
-		f'Summary (executed): COPY={summary.copies} MOVE={summary.moves} SKIP={summary.skips} '
+		f'Summary (executed): MOVE={summary.moves} SKIP={summary.skips} '
 		f'ERRORS={summary.errors}'
 	)
 	exit_code = 0

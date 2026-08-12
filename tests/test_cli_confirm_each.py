@@ -56,8 +56,6 @@ def test_confirm_each_declines_all_actions(tmp_path: Path, monkeypatch) -> None:
 		source_dir=source_dir,
 		target_dir=target_dir,
 		apply=True,
-		move=False,
-		copy=False,
 		recursive=False,
 		ignore=[],
 		default_lang='en',
@@ -70,6 +68,6 @@ def test_confirm_each_declines_all_actions(tmp_path: Path, monkeypatch) -> None:
 
 	# We should have prompted at least once.
 	assert decline_calls
-	# And since we declined, nothing should be executed as copy/move.
-	assert all(action != 'copy' and action != 'move' for action, _ in captured_actions)
+	# And since we declined, nothing should be executed as move.
+	assert all(action != 'move' for action, _ in captured_actions)
 
