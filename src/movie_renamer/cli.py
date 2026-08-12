@@ -45,6 +45,15 @@ UNDO_ID_ARG = typer.Argument(
 )
 
 
+def _display_target(target: Path | None, target_dir: Path) -> str:
+	if target is None:
+		return ''
+	try:
+		return str(target.relative_to(target_dir))
+	except ValueError:
+		return str(target)
+
+
 @app.callback(invoke_without_command=True)
 def main(
 	source_dir: Path | None = SOURCE_DIR_OPT,
@@ -164,6 +173,7 @@ def main(
 		counts[a.action] = counts.get(a.action, 0) + 1
 
 	typer.echo('Planned operations (move):')
+	typer.echo(f'Target directory: {target_dir}')
 	for a in actions:
 		src_name = a.source.name if a.source else ''
 		if a.action == 'skip':
@@ -183,7 +193,8 @@ def main(
 			action_label = label('MOVE', color='yellow')
 		else:
 			action_label = label(a.action.upper(), color='white')
-		typer.echo(f'- {action_label} {src_name} -> {a.target}')
+		dest = _display_target(a.target, target_dir)
+		typer.echo(f'- {action_label} {src_name} -> {dest}')
 		if verbose and a.metadata is not None:
 			typer.echo(
 				f'  metadata: title={a.metadata.title!r} year={a.metadata.year} '
