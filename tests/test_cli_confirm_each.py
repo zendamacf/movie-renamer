@@ -18,7 +18,7 @@ def test_confirm_each_declines_all_actions(tmp_path: Path, monkeypatch) -> None:
 	target_dir = tmp_path / 'dst'
 	target_dir.mkdir(parents=True, exist_ok=True)
 
-	# Create one folder that planner will parse and plan a copy for.
+	# Create one folder that planner will parse and plan a move for.
 	movie_folder = source_dir / 'Single.White.Female.1992.1080p.BluRay.x265-RARBG'
 	video_path = movie_folder / 'Single.White.Female.1992....mp4'
 	_write(video_path, b'video')
@@ -41,7 +41,6 @@ def test_confirm_each_declines_all_actions(tmp_path: Path, monkeypatch) -> None:
 		# All actions should have been converted to skips.
 		return ExecutionResult(
 			summary=ExecutionSummary(
-				copies=0,
 				moves=0,
 				skips=sum(1 for a in actions if a.action == 'skip'),
 				errors=0,
@@ -56,8 +55,6 @@ def test_confirm_each_declines_all_actions(tmp_path: Path, monkeypatch) -> None:
 		source_dir=source_dir,
 		target_dir=target_dir,
 		apply=True,
-		move=False,
-		copy=False,
 		recursive=False,
 		ignore=[],
 		default_lang='en',
@@ -70,6 +67,6 @@ def test_confirm_each_declines_all_actions(tmp_path: Path, monkeypatch) -> None:
 
 	# We should have prompted at least once.
 	assert decline_calls
-	# And since we declined, nothing should be executed as copy/move.
-	assert all(action != 'copy' and action != 'move' for action, _ in captured_actions)
+	# And since we declined, nothing should be executed as move.
+	assert all(action != 'move' for action, _ in captured_actions)
 

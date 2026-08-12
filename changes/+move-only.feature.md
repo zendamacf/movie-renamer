@@ -1,0 +1,1 @@
+Removes copy functionality, as copying was significantly slower than moving.

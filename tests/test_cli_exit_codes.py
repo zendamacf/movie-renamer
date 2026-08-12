@@ -31,10 +31,10 @@ def test_apply_exits_nonzero_on_execution_errors(tmp_path: Path, monkeypatch) ->
 
 	def fake_execute_actions(actions, *, verbose: bool = False) -> ExecutionResult:
 		return ExecutionResult(
-			summary=ExecutionSummary(copies=1, moves=0, skips=0, errors=1),
+			summary=ExecutionSummary(moves=1, skips=0, errors=1),
 			executed=[
 				HistoryOperation(
-					action='copy',
+					action='move',
 					source=video_path,
 					target=expected_target,
 				)
@@ -48,8 +48,6 @@ def test_apply_exits_nonzero_on_execution_errors(tmp_path: Path, monkeypatch) ->
 			source_dir=source_dir,
 			target_dir=target_dir,
 			apply=True,
-			move=False,
-			copy=False,
 			recursive=False,
 			ignore=[],
 			default_lang='en',

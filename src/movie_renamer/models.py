@@ -7,7 +7,7 @@ from typing import Literal
 from .parser import MovieMetadata
 
 FileKind = Literal['video', 'subtitle', 'promo', 'other']
-PlannedActionKind = Literal['copy', 'move', 'skip']
+PlannedActionKind = Literal['move', 'skip']
 
 
 @dataclass(frozen=True)

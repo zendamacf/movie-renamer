@@ -12,7 +12,7 @@ def _write(path: Path, content: bytes) -> None:
 	path.write_bytes(content)
 
 
-def test_executor_copy_executes_video_and_subtitle(tmp_path: Path) -> None:
+def test_executor_move_executes_video_and_subtitle(tmp_path: Path) -> None:
 	source_dir = tmp_path / 'src'
 	target_dir = tmp_path / 'dst'
 
@@ -28,19 +28,19 @@ def test_executor_copy_executes_video_and_subtitle(tmp_path: Path) -> None:
 	actions = plan_actions(
 		folder_scans=scan_movie_folders(source_dir, recursive=False),
 		target_dir=target_dir,
-		operation='copy',
 		default_lang='en',
 		ignore_globs=[],
 	)
 
 	summary = execute_actions(actions).summary
-	assert summary.copies == 2
-	assert summary.moves == 0
+	assert summary.moves == 2
 
 	expected_dir = target_dir / 'Ultraviolet (2006)'
 	assert (expected_dir / 'Ultraviolet (2006).mkv').exists()
 	assert (expected_dir / 'Ultraviolet (2006).en.srt').exists()
 	assert not (expected_dir / 'WWW.YTS.RE.jpg').exists()
+	assert not video_path.exists()
+	assert not sub_path.exists()
 
 
 def test_executor_skips_non_primary_video(tmp_path: Path) -> None:
@@ -58,17 +58,18 @@ def test_executor_skips_non_primary_video(tmp_path: Path) -> None:
 	actions = plan_actions(
 		folder_scans=scan_movie_folders(source_dir, recursive=False),
 		target_dir=target_dir,
-		operation='copy',
 		default_lang='en',
 		ignore_globs=[],
 	)
 
 	summary = execute_actions(actions).summary
-	assert summary.copies == 1
+	assert summary.moves == 1
 
 	expected_video = target_dir / 'Troy (2004)' / "Troy (2004) {edition-Director's Cut}.mkv"
 	assert expected_video.exists()
 	assert not (expected_video.parent / 'Troy (2004).mkv').exists()
+	assert not video_primary.exists()
+	assert video_secondary.exists()
 
 
 def test_executor_collision_skips_without_overwriting(tmp_path: Path) -> None:
@@ -88,17 +89,15 @@ def test_executor_collision_skips_without_overwriting(tmp_path: Path) -> None:
 	actions = plan_actions(
 		folder_scans=scan_movie_folders(source_dir, recursive=False),
 		target_dir=target_dir,
-		operation='copy',
 		default_lang='en',
 		ignore_globs=[],
 	)
 
 	summary = execute_actions(actions).summary
-	assert summary.copies == 0
+	assert summary.moves == 0
 	assert summary.skips >= 1
 
 	assert expected_target.read_bytes() == b'OLD-CONTENT'
-	# Copy mode should not delete sources.
 	assert video_path.exists()
 
 
@@ -113,18 +112,17 @@ def test_executor_oserror_counts_as_error(tmp_path: Path, monkeypatch) -> None:
 	actions = plan_actions(
 		folder_scans=scan_movie_folders(source_dir, recursive=False),
 		target_dir=target_dir,
-		operation='copy',
 		default_lang='en',
 		ignore_globs=[],
 	)
 
 	import shutil
 
-	def fail_copy(_src, _dst):
+	def fail_move(_src, _dst):
 		raise OSError('disk full')
 
-	monkeypatch.setattr(shutil, 'copy2', fail_copy)
+	monkeypatch.setattr(shutil, 'move', fail_move)
 
 	summary = execute_actions(actions).summary
 	assert summary.errors == 1
-	assert summary.copies == 0
+	assert summary.moves == 0

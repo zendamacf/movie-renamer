@@ -21,39 +21,6 @@ def _write(path: Path, content: bytes) -> None:
 	path.write_bytes(content)
 
 
-def test_history_undo_copy_batch(tmp_path: Path) -> None:
-	source_dir = tmp_path / 'src'
-	target_dir = tmp_path / 'dst'
-	target_dir.mkdir(parents=True, exist_ok=True)
-
-	movie_folder = source_dir / 'Single.White.Female.1992.1080p.BluRay.x265-RARBG'
-	video_path = movie_folder / 'Single.White.Female.1992....mp4'
-	_write(video_path, b'video-content')
-
-	actions = plan_actions(
-		folder_scans=scan_movie_folders(source_dir, recursive=False),
-		target_dir=target_dir,
-		operation='copy',
-		default_lang='en',
-		ignore_globs=[],
-	)
-	exec_result = execute_actions(actions)
-	assert exec_result.summary.copies == 1
-
-	expected = target_dir / 'Single White Female (1992)' / 'Single White Female (1992).mp4'
-	assert expected.exists()
-
-	batch = append_batch(target_dir, source_dir=source_dir, operations=exec_result.executed)
-	undo_summary = undo_batch(target_dir, batch.id)
-	assert undo_summary.reverted == 1
-	assert not expected.exists()
-	assert video_path.exists()
-
-	updated = load_batches(target_dir)
-	assert updated[0].undone_at is not None
-	assert latest_undoable_batch(target_dir) is None
-
-
 def test_history_undo_move_batch(tmp_path: Path) -> None:
 	source_dir = tmp_path / 'src'
 	target_dir = tmp_path / 'dst'
@@ -66,7 +33,6 @@ def test_history_undo_move_batch(tmp_path: Path) -> None:
 	actions = plan_actions(
 		folder_scans=scan_movie_folders(source_dir, recursive=False),
 		target_dir=target_dir,
-		operation='move',
 		default_lang='en',
 		ignore_globs=[],
 	)
@@ -83,6 +49,10 @@ def test_history_undo_move_batch(tmp_path: Path) -> None:
 	assert not expected.exists()
 	assert video_path.exists()
 	assert video_path.read_bytes() == b'video-content'
+
+	updated = load_batches(target_dir)
+	assert updated[0].undone_at is not None
+	assert latest_undoable_batch(target_dir) is None
 
 
 def test_load_batches_raises_on_corrupt_history_file(tmp_path: Path) -> None:
