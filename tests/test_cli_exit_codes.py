@@ -24,9 +24,7 @@ def test_apply_exits_nonzero_on_execution_errors(tmp_path: Path, monkeypatch) ->
 	movie_folder = source_dir / 'Single.White.Female.1992.1080p.BluRay.x265-RARBG'
 	video_path = movie_folder / 'Single.White.Female.1992....mp4'
 	_write(video_path, b'video')
-	expected_target = (
-		target_dir / 'Single White Female (1992)' / 'Single White Female (1992).mp4'
-	)
+	expected_target = target_dir / 'Single White Female (1992)' / 'Single White Female (1992).mp4'
 
 	from movie_renamer import executor as executor_mod
 
@@ -64,4 +62,3 @@ def test_apply_exits_nonzero_on_execution_errors(tmp_path: Path, monkeypatch) ->
 	batches = load_batches()
 	assert len(batches) == 1
 	assert batches[0].status == 'partial'
-

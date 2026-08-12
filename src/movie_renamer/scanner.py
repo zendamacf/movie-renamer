@@ -27,19 +27,85 @@ def extract_subtitle_lang(subtitle_filename: str) -> str | None:
 	Best-effort language extraction from filenames like:
 	- `movie.en.srt` / `movie.eng.srt`
 	- `movie.english.srt`
+	- `English.srt`
+	- `Forced.eng.srt`
+	- `fre.srt` / `spa.srt`
+	- `forced.eng.srt` / `eng.forced.srt`
+	- `SDH.eng.HI.srt` / `eng.sdh.srt`
+	- `16_English.srt`
 	"""
-	# Match the last ".<lang>.srt" segment. Allow up to 7 letters because of "english".
-	m = re.search(r'\.(?P<lang>[a-zA-Z]{2,7})\.srt$', subtitle_filename, flags=re.IGNORECASE)
-	if not m:
+	suffix = subtitle_filename.lower().rsplit('.', 1)[-1]
+	if suffix not in {'srt', 'vtt'}:
 		return None
 
-	lang = m.group('lang').lower()
-	if lang in {'eng', 'en', 'english'}:
-		return 'en'
-	if len(lang) == 2:
+	def normalize_lang_token(token: str) -> str | None:
+		t = token.lower()
+		# Common aliases we expect in the wild (and in our fixtures).
+		lang_aliases = {
+			'english': 'en',
+			'eng': 'en',
+			'en': 'en',
+			'french': 'fr',
+			'fre': 'fr',
+			'fr': 'fr',
+			'spanish': 'es',
+			'spa': 'es',
+			'es': 'es',
+		}
+		if t in lang_aliases:
+			return lang_aliases[t]
+		# Allow plain 2-letter codes.
+		if len(t) == 2 and t.isalpha():
+			return t
+		# Fall back to the first two letters (e.g. "portuguese" -> "po").
+		if len(t) >= 3 and t.isalpha():
+			return t[:2]
+		return None
+
+	# Support "forced" and "sdh" releases in addition to basic language tagging.
+	#
+	# Examples we handle:
+	# - `Forced.eng.srt` / `forced.eng.srt` (forced + language token)
+	# - `eng.forced.srt` (language + forced token)
+	# - `SDH.eng.HI.srt` (sdh + language token, with extra tokens after)
+	# - `eng.sdh.srt` (language + sdh token)
+	stem = subtitle_filename[: -len(suffix) - 1]  # strip ".srt"/".vtt"
+	tokens = [t for t in re.split(r'[\.\s_-]+', stem) if t]
+	tokens_l = [t.lower() for t in tokens]
+
+	def _pick_lang_near_marker(marker: str) -> str | None:
+		for i, t in enumerate(tokens_l):
+			if t != marker:
+				continue
+			# `forced.<lang>.srt` / `sdh.<lang>...`
+			if i + 1 < len(tokens_l):
+				lang = normalize_lang_token(tokens_l[i + 1])
+				if lang:
+					return lang
+			# `<lang>.forced.srt` / `<lang>.sdh.srt`
+			if i - 1 >= 0:
+				lang = normalize_lang_token(tokens_l[i - 1])
+				if lang:
+					return lang
+		return None
+
+	lang = _pick_lang_near_marker('forced') or _pick_lang_near_marker('sdh')
+	if lang:
 		return lang
-	# Fall back to the first two letters (e.g. "portuguese" -> "po").
-	return lang[:2]
+
+	# Match the last ".<lang>.<ext>" segment. Keep this after forced/sdh logic so we
+	# don't incorrectly parse later tokens like "HI" as the language.
+	m = re.search(r'\.(?P<lang>[a-zA-Z]{2,7})\.(srt|vtt)$', subtitle_filename, flags=re.IGNORECASE)
+	if m:
+		return normalize_lang_token(m.group('lang'))
+
+	# Subs folder naming often uses just the language name/code.
+	parts = re.split(r'[^a-zA-Z]+', stem.lower())
+	for part in parts:
+		lang = normalize_lang_token(part)
+		if lang:
+			return lang
+	return None
 
 
 def is_promo_image(filename_lower: str) -> bool:
@@ -81,9 +147,7 @@ def _iter_movie_folders(source_dir: Path, recursive: bool) -> Iterable[Path]:
 			dir_path = Path(dirpath)
 			# Prune junk/sample trees so we do not descend or scan them.
 			dirnames[:] = [
-				d
-				for d in dirnames
-				if d.lower() not in SAMPLE_FOLDER_NAMES and d.lower() not in JUNK_FOLDER_NAMES
+				d for d in dirnames if d.lower() not in SAMPLE_FOLDER_NAMES and d.lower() not in JUNK_FOLDER_NAMES
 			]
 			if dir_path == source_dir:
 				continue
@@ -109,12 +173,20 @@ def _iter_movie_folders(source_dir: Path, recursive: bool) -> Iterable[Path]:
 def _collect_classified_files(folder: Path) -> list[FileCandidate]:
 	files: list[FileCandidate] = []
 	for entry in folder.iterdir():
-		if not entry.is_file():
-			continue
-		candidate = classify_file(entry)
-		if candidate is None:
-			continue
-		files.append(candidate)
+		if entry.is_file():
+			candidate = classify_file(entry)
+			if candidate is not None:
+				files.append(candidate)
+
+		# Many releases place subtitles under a dedicated "Subs/" directory.
+		# Scan its *direct* children (usually language files like "English.srt").
+		if entry.is_dir() and entry.name.lower() == 'subs':
+			for subs_entry in entry.iterdir():
+				if not subs_entry.is_file():
+					continue
+				candidate = classify_file(subs_entry)
+				if candidate is not None:
+					files.append(candidate)
 	return files
 
 

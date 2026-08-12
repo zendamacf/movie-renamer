@@ -70,4 +70,3 @@ def test_confirm_each_declines_all_actions(tmp_path: Path, monkeypatch) -> None:
 	assert decline_calls
 	# And since we declined, nothing should be executed as move.
 	assert all(action != 'move' for action, _ in captured_actions)
-
