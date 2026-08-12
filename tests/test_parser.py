@@ -39,6 +39,12 @@ from movie_renamer.parser import MovieMetadata, parse_movie_name
 			2006,
 			None,
 		),
+		(
+			'Minions.and.Monsters.2026.1080p.WEBRip.AAC5.1.10bits.x265-Rapta.mkv',
+			'Minions and Monsters',
+			2026,
+			None,
+		),
 	],
 )
 def test_parse_movie_name(raw: str, title: str, year: int, edition: str | None) -> None:

@@ -134,6 +134,8 @@ def strip_release_tags(text: str) -> str:
 	text = re.sub(r'\[.*?\]', ' ', text)
 	# Remove parenthesized year "(1992)" but keep the year for extraction elsewhere.
 	text = re.sub(r'\(\s*(19|20)\d{2}\s*\)', ' ', text)
+	# Drop leftover grouping punctuation (e.g. title text cut off before "(1992)").
+	text = re.sub(r'[()\[\]]', ' ', text)
 
 	# Remove audio channel noise like "5.1" or "7.1" before we replace '.' with spaces.
 	# This avoids leaving behind "5 1" tokens that pollute the title.
@@ -178,8 +180,12 @@ def parse_movie_name(raw: str, *, edition_phrases: list[str] | None = None) -> M
 	edition_phrases = edition_phrases or _EDITION_PHRASES
 	edition = extract_edition(raw, edition_phrases=edition_phrases)
 
+	# Scene/release names put the title before the year; ignore trailing quality tags.
+	year_match = _YEAR_RE.search(raw)
+	title_source = raw[: year_match.start()] if year_match else raw
+
 	# Derive title candidate.
-	working = strip_release_tags(raw)
+	working = strip_release_tags(title_source)
 	working = working.replace("'", "'")  # normalize odd quoting variants (best-effort)
 	working = _cleanup_title_tokens(working, edition_phrases=edition_phrases)
 
