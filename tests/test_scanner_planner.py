@@ -230,6 +230,34 @@ def test_planner_subtitle_sdh_lang_parsing(tmp_path: Path) -> None:
 	assert any(a.action == 'move' and a.target == expected_es_target and a.source == sub_path_sdh_spa for a in actions)
 
 
+def test_planner_subtitles_match_movie_edition_when_present(tmp_path: Path) -> None:
+	source_dir = tmp_path / 'src'
+	target_dir = tmp_path / 'dst'
+
+	# Movie edition: Director's Cut
+	folder = source_dir / "Troy.Director's.Cut.2004"
+	video_primary = folder / "Troy.Director's.Cut.2004.2160p.WEB-DL.mkv"
+	sub_good = folder / "Troy.Director's.Cut.2004.en.srt"
+	sub_bad = folder / 'Troy.2004.en.srt'  # No edition marker in subtitle filename
+
+	_write(video_primary, b'video-bytes' * 10)
+	_write(sub_good, b'sub-good')
+	_write(sub_bad, b'sub-bad')
+
+	actions = plan_actions(
+		folder_scans=scan_movie_folders(source_dir, recursive=False),
+		target_dir=target_dir,
+		default_lang='en',
+		ignore_globs=[],
+	)
+
+	expected_target = target_dir / 'Troy (2004)' / 'Troy (2004).en.srt'
+
+	assert any(a.action == 'move' and a.target == expected_target and a.source == sub_good for a in actions)
+	assert any(a.action == 'skip' and a.source == sub_bad for a in actions)
+	assert not any(a.action == 'move' and a.source == sub_bad for a in actions)
+
+
 def test_scan_movie_folders_recursive_finds_nested_movies(tmp_path: Path) -> None:
 	from movie_renamer.scanner import scan_movie_folders
 

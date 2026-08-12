@@ -6,7 +6,7 @@ from pathlib import Path
 
 from movie_renamer.models import FolderScan, PlannedAction
 from movie_renamer.naming import folder_name, subtitle_name, video_name
-from movie_renamer.parser import MovieMetadata, parse_movie_name
+from movie_renamer.parser import MovieMetadata, extract_edition, parse_movie_name
 
 
 def _matches_any_glob(path: Path, globs: Iterable[str]) -> bool:
@@ -116,6 +116,22 @@ def plan_actions(
 
 				target = folder_target / video_name(meta, ext=f.path.suffix.lstrip('.'))
 			elif f.kind == 'subtitle':
+				# If the primary movie indicates an edition (e.g. "Director's Cut"), try to ensure the
+				# subtitle filenames match that same edition. This prevents mixing up subtitle tracks
+				# across multiple releases/editions in the same folder.
+				if meta.edition is not None:
+					subtitle_edition = extract_edition(f.path.name, edition_phrases=edition_phrases)
+					if subtitle_edition != meta.edition:
+						actions.append(
+							PlannedAction(
+								source=f.path,
+								target=None,
+								action='skip',
+								metadata=meta,
+							)
+						)
+						continue
+
 				# Subtitles that mirror the video basename (e.g. release-name.srt) are not
 				# language-tagged. Avoid mis-parsing release tokens like "YIFY" as a lang code.
 				if primary_path is not None and f.path.stem == primary_path.stem:
