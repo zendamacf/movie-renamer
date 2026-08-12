@@ -180,6 +180,74 @@ def test_scan_movie_folders_recursive_finds_nested_movies(tmp_path: Path) -> Non
 	assert all(fs.folder != other_folder for fs in recursive)
 
 
+def test_scan_picks_up_standalone_video_in_source_dir(tmp_path: Path) -> None:
+	source_dir = tmp_path / 'src'
+	target_dir = tmp_path / 'dst'
+	video_path = (
+		source_dir / 'Minions.and.Monsters.2026.1080p.WEBRip.AAC5.1.10bits.x265-Rapta.mkv'
+	)
+	_write(video_path, b'video')
+
+	actions = plan_actions(
+		folder_scans=scan_movie_folders(source_dir, recursive=False),
+		target_dir=target_dir,
+		default_lang='en',
+		ignore_globs=[],
+	)
+
+	expected = target_dir / 'Minions and Monsters (2026)' / 'Minions and Monsters (2026).mkv'
+	assert any(
+		a.action == 'move' and a.source == video_path and a.target == expected for a in actions
+	)
+
+
+def test_scan_standalone_video_keeps_matching_subtitle(tmp_path: Path) -> None:
+	source_dir = tmp_path / 'src'
+	target_dir = tmp_path / 'dst'
+	stem = 'Minions.and.Monsters.2026.1080p.WEBRip.AAC5.1.10bits.x265-Rapta'
+	video_path = source_dir / f'{stem}.mkv'
+	sub_path = source_dir / f'{stem}.srt'
+	_write(video_path, b'video')
+	_write(sub_path, b'subtitle')
+
+	actions = plan_actions(
+		folder_scans=scan_movie_folders(source_dir, recursive=False),
+		target_dir=target_dir,
+		default_lang='en',
+		ignore_globs=[],
+	)
+
+	expected_video = target_dir / 'Minions and Monsters (2026)' / 'Minions and Monsters (2026).mkv'
+	expected_sub = target_dir / 'Minions and Monsters (2026)' / 'Minions and Monsters (2026).en.srt'
+	assert any(
+		a.action == 'move' and a.source == video_path and a.target == expected_video
+		for a in actions
+	)
+	assert any(
+		a.action == 'move' and a.source == sub_path and a.target == expected_sub for a in actions
+	)
+
+
+def test_scan_standalone_videos_are_planned_separately(tmp_path: Path) -> None:
+	source_dir = tmp_path / 'src'
+	target_dir = tmp_path / 'dst'
+	first = source_dir / 'Minions.and.Monsters.2026.1080p.WEBRip.mkv'
+	second = source_dir / 'Ultraviolet.2006.BluRay.1080p.x264.YIFY.mkv'
+	_write(first, b'video-one')
+	_write(second, b'video-two')
+
+	actions = plan_actions(
+		folder_scans=scan_movie_folders(source_dir, recursive=False),
+		target_dir=target_dir,
+		default_lang='en',
+		ignore_globs=[],
+	)
+
+	moved = {a.source for a in actions if a.action == 'move'}
+	assert moved == {first, second}
+	assert not any(a.action == 'skip' and a.reason == 'non-primary video' for a in actions)
+
+
 def test_scan_recursive_does_not_descend_into_other_subfolders(tmp_path: Path) -> None:
 	source_dir = tmp_path / 'src'
 	nested_in_other = source_dir / 'Other' / 'Nested.Movie.2010'

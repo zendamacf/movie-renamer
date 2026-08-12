@@ -106,16 +106,48 @@ def _iter_movie_folders(source_dir: Path, recursive: bool) -> Iterable[Path]:
 			yield child
 
 
+def _collect_classified_files(folder: Path) -> list[FileCandidate]:
+	files: list[FileCandidate] = []
+	for entry in folder.iterdir():
+		if not entry.is_file():
+			continue
+		candidate = classify_file(entry)
+		if candidate is None:
+			continue
+		files.append(candidate)
+	return files
+
+
+def _sidecar_belongs_to_video(sidecar: FileCandidate, video: FileCandidate) -> bool:
+	video_stem = video.path.stem
+	other_stem = sidecar.path.stem
+	return other_stem == video_stem or other_stem.startswith(f'{video_stem}.')
+
+
+def _scan_loose_files(source_dir: Path) -> list[FolderScan]:
+	"""Treat video files sitting directly in source_dir as their own movies."""
+	files = _collect_classified_files(source_dir)
+	videos = [f for f in files if f.kind == 'video']
+	sidecars = [f for f in files if f.kind != 'video']
+
+	scans: list[FolderScan] = []
+	claimed: set[Path] = set()
+	for video in videos:
+		related = [video]
+		claimed.add(video.path)
+		for sidecar in sidecars:
+			if sidecar.path in claimed:
+				continue
+			if _sidecar_belongs_to_video(sidecar, video):
+				related.append(sidecar)
+				claimed.add(sidecar.path)
+		scans.append(FolderScan(folder=source_dir, files=related))
+	return scans
+
+
 def scan_movie_folders(source_dir: Path, recursive: bool = False) -> list[FolderScan]:
 	folders: list[FolderScan] = []
 	for folder in _iter_movie_folders(source_dir, recursive=recursive):
-		files: list[FileCandidate] = []
-		for entry in folder.iterdir():
-			if not entry.is_file():
-				continue
-			candidate = classify_file(entry)
-			if candidate is None:
-				continue
-			files.append(candidate)
-		folders.append(FolderScan(folder=folder, files=files))
+		folders.append(FolderScan(folder=folder, files=_collect_classified_files(folder)))
+	folders.extend(_scan_loose_files(source_dir))
 	return folders
