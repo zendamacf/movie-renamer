@@ -3,13 +3,10 @@ from __future__ import annotations
 import fnmatch
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Literal
 
 from movie_renamer.models import FolderScan, PlannedAction
 from movie_renamer.naming import folder_name, subtitle_name, video_name
 from movie_renamer.parser import MovieMetadata, parse_movie_name
-
-Operation = Literal['copy', 'move']
 
 
 def _matches_any_glob(path: Path, globs: Iterable[str]) -> bool:
@@ -50,7 +47,6 @@ def _try_parse_metadata_from_video_or_folder(folder_scan: FolderScan) -> MovieMe
 def plan_actions(
 	folder_scans: list[FolderScan],
 	target_dir: Path,
-	operation: Operation,
 	default_lang: str = 'en',
 	ignore_globs: list[str] | None = None,
 	edition_phrases: list[str] | None = None,
@@ -151,7 +147,7 @@ def plan_actions(
 				PlannedAction(
 					source=f.path,
 					target=target,
-					action=operation,
+					action='move',
 					reason=None,
 					metadata=meta,
 				)

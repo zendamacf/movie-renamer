@@ -13,7 +13,6 @@ from .terminal import label
 
 @dataclass(frozen=True)
 class ExecutionSummary:
-	copies: int = 0
 	moves: int = 0
 	skips: int = 0
 	errors: int = 0
@@ -32,14 +31,13 @@ def _target_exists(path: Path) -> bool:
 
 def execute_actions(actions: Iterable[PlannedAction], *, verbose: bool = False) -> ExecutionResult:
 	"""
-	Execute planned `copy`/`move` operations.
+	Execute planned move operations.
 
 	Safety defaults:
 	- never overwrite an existing target path; collision => skip-with-warning
 	- errors executing a single file => skip and continue (but counted in summary)
 	"""
 
-	copies = 0
 	moves = 0
 	skips = 0
 	errors = 0
@@ -55,6 +53,10 @@ def execute_actions(actions: Iterable[PlannedAction], *, verbose: bool = False) 
 			skips += 1
 			continue
 
+		if a.action != 'move':
+			skips += 1
+			continue
+
 		source = a.source.resolve()
 		target = a.target.resolve()
 
@@ -67,23 +69,12 @@ def execute_actions(actions: Iterable[PlannedAction], *, verbose: bool = False) 
 		target.parent.mkdir(parents=True, exist_ok=True)
 
 		try:
-			if a.action == 'copy':
-				shutil.copy2(source, target)
-				copies += 1
-				executed.append(HistoryOperation(action='copy', source=source, target=target))
-				if verbose:
-					tag = label('COPY', color='green', stream=sys.stderr)
-					print(f'{tag}: {source} -> {target}')
-			elif a.action == 'move':
-				shutil.move(source, target)
-				moves += 1
-				executed.append(HistoryOperation(action='move', source=source, target=target))
-				if verbose:
-					tag = label('MOVE', color='yellow', stream=sys.stderr)
-					print(f'{tag}: {source} -> {target}')
-			else:
-				# Defensive: unknown action kind => skip.
-				skips += 1
+			shutil.move(source, target)
+			moves += 1
+			executed.append(HistoryOperation(action='move', source=source, target=target))
+			if verbose:
+				tag = label('MOVE', color='yellow', stream=sys.stderr)
+				print(f'{tag}: {source} -> {target}')
 		except FileNotFoundError:
 			skips += 1
 			warn = label('WARN', color='yellow', stream=sys.stderr)
@@ -92,11 +83,11 @@ def execute_actions(actions: Iterable[PlannedAction], *, verbose: bool = False) 
 			errors += 1
 			err = label('ERROR', color='red', stream=sys.stderr)
 			print(
-				f'{err}: failed to {a.action} {source} -> {target}: {type(e).__name__}: {e}',
+				f'{err}: failed to move {source} -> {target}: {type(e).__name__}: {e}',
 				file=sys.stderr,
 			)
 
 	return ExecutionResult(
-		summary=ExecutionSummary(copies=copies, moves=moves, skips=skips, errors=errors),
+		summary=ExecutionSummary(moves=moves, skips=skips, errors=errors),
 		executed=executed,
 	)

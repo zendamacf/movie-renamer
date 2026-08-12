@@ -13,7 +13,7 @@ from uuid import uuid4
 
 from filelock import FileLock
 
-HistoryAction = Literal['copy', 'move']
+HistoryAction = Literal['move']
 
 
 @dataclass(frozen=True)
@@ -24,8 +24,11 @@ class HistoryOperation:
 
 	@staticmethod
 	def from_dict(data: dict[str, str]) -> HistoryOperation:
+		action = data.get('action')
+		if action != 'move':
+			raise ValueError(f'Invalid history action: {action!r}')
 		return HistoryOperation(
-			action=data['action'],  # type: ignore[arg-type]
+			action='move',
 			source=Path(data['source']),
 			target=Path(data['target']),
 		)
@@ -195,24 +198,17 @@ def undo_batch(
 					print(f'SKIP: target missing: {op.target}', file=sys.stderr)
 				continue
 
-			if op.action == 'copy':
-				op.target.unlink()
-				_remove_empty_parents(op.target, stop_at=target_dir)
-				reverted += 1
+			op.source.parent.mkdir(parents=True, exist_ok=True)
+			if op.source.exists():
+				skips += 1
 				if verbose:
-					print(f'UNDO COPY: removed {op.target}')
-			elif op.action == 'move':
-				op.source.parent.mkdir(parents=True, exist_ok=True)
-				if op.source.exists():
-					skips += 1
-					if verbose:
-						print(f'SKIP: source already exists: {op.source}', file=sys.stderr)
-					continue
-				shutil.move(str(op.target), str(op.source))
-				_remove_empty_parents(op.target, stop_at=target_dir)
-				reverted += 1
-				if verbose:
-					print(f'UNDO MOVE: {op.target} -> {op.source}')
+					print(f'SKIP: source already exists: {op.source}', file=sys.stderr)
+				continue
+			shutil.move(str(op.target), str(op.source))
+			_remove_empty_parents(op.target, stop_at=target_dir)
+			reverted += 1
+			if verbose:
+				print(f'UNDO MOVE: {op.target} -> {op.source}')
 		except Exception as e:  # noqa: BLE001
 			errors += 1
 			print(

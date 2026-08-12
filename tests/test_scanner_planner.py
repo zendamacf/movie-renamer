@@ -30,13 +30,12 @@ def test_planner_plans_primary_video_and_skips_promo_and_junk(tmp_path: Path) ->
 	actions = plan_actions(
 		folder_scans=folder_scans,
 		target_dir=target_dir,
-		operation='copy',
 		default_lang='en',
 		ignore_globs=[],
 	)
 
 	target_video = target_dir / 'Single White Female (1992)' / 'Single White Female (1992).mp4'
-	assert any(a.action == 'copy' and a.target == target_video for a in actions)
+	assert any(a.action == 'move' and a.target == target_video for a in actions)
 
 	assert any(
 		a.action == 'skip' and a.source == promo_path and a.reason == 'promo image' for a in actions
@@ -57,14 +56,13 @@ def test_planner_subtitle_default_lang(tmp_path: Path) -> None:
 	actions = plan_actions(
 		folder_scans=scan_movie_folders(source_dir, recursive=False),
 		target_dir=target_dir,
-		operation='copy',
 		default_lang='en',
 		ignore_globs=[],
 	)
 
 	expected_subtitle_target = target_dir / 'Ultraviolet (2006)' / 'Ultraviolet (2006).en.srt'
 	assert any(
-		a.action == 'copy' and a.target == expected_subtitle_target and a.source == sub_path
+		a.action == 'move' and a.target == expected_subtitle_target and a.source == sub_path
 		for a in actions
 	)
 
@@ -82,14 +80,13 @@ def test_planner_primary_video_selection_and_edition_suffix(tmp_path: Path) -> N
 	actions = plan_actions(
 		folder_scans=scan_movie_folders(source_dir, recursive=False),
 		target_dir=target_dir,
-		operation='copy',
 		default_lang='en',
 		ignore_globs=[],
 	)
 
 	primary_target = target_dir / 'Troy (2004)' / "Troy (2004) {edition-Director's Cut}.mkv"
 	assert any(
-		a.action == 'copy' and a.target == primary_target and a.source == video_primary
+		a.action == 'move' and a.target == primary_target and a.source == video_primary
 		for a in actions
 	)
 
@@ -112,14 +109,13 @@ def test_planner_subtitle_matching_video_stem_uses_default_lang(tmp_path: Path) 
 	actions = plan_actions(
 		folder_scans=scan_movie_folders(source_dir, recursive=False),
 		target_dir=target_dir,
-		operation='copy',
 		default_lang='en',
 		ignore_globs=[],
 	)
 
 	expected_subtitle_target = target_dir / 'Ultraviolet (2006)' / 'Ultraviolet (2006).en.srt'
 	assert any(
-		a.action == 'copy' and a.target == expected_subtitle_target and a.source == sub_path
+		a.action == 'move' and a.target == expected_subtitle_target and a.source == sub_path
 		for a in actions
 	)
 
@@ -140,16 +136,15 @@ def test_planner_subtitle_lang_inference_eng_and_english(tmp_path: Path) -> None
 	actions = plan_actions(
 		folder_scans=scan_movie_folders(source_dir, recursive=False),
 		target_dir=target_dir,
-		operation='copy',
 		default_lang='en',
 		ignore_globs=[],
 	)
 
 	expected_target = target_dir / 'Ultraviolet (2006)' / 'Ultraviolet (2006).en.srt'
-	copied_sources = {
+	moved_sources = {
 		a.source
 		for a in actions
-		if a.action == 'copy' and a.target == expected_target and a.source is not None
+		if a.action == 'move' and a.target == expected_target and a.source is not None
 	}
 	skipped_sources = {
 		a.source
@@ -158,7 +153,7 @@ def test_planner_subtitle_lang_inference_eng_and_english(tmp_path: Path) -> None
 	}
 
 	# Collision: both ENG + ENGLISH map to the same target filename; exactly one wins.
-	assert copied_sources == {sub_path_eng} or copied_sources == {sub_path_english}
+	assert moved_sources == {sub_path_eng} or moved_sources == {sub_path_english}
 	assert skipped_sources == {sub_path_eng} or skipped_sources == {sub_path_english}
 
 

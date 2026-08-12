@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Literal
 
 import typer
 
@@ -112,11 +111,10 @@ def main(
 				return
 			for batch in batches:
 				status = 'undone' if batch.undone_at else batch.status
-				copies = sum(1 for op in batch.operations if op.action == 'copy')
 				moves = sum(1 for op in batch.operations if op.action == 'move')
 				typer.echo(
 					f'{batch.id} [{status}] created={batch.created_at} '
-					f'copy={copies} move={moves} ops={len(batch.operations)}'
+					f'move={moves} ops={len(batch.operations)}'
 				)
 			return
 
@@ -145,14 +143,10 @@ def main(
 	if not source_dir.exists() or not source_dir.is_dir():
 		raise typer.BadParameter(f'`source_dir` must be an existing directory: {source_dir}')
 
-	# Only support moving files
-	operation: Literal['move'] = 'move'
-
 	folder_scans = scan_movie_folders(source_dir, recursive=recursive)
 	actions = plan_actions(
 		folder_scans=folder_scans,
 		target_dir=target_dir,
-		operation=operation,
 		default_lang=default_lang,
 		ignore_globs=ignore_globs,
 		edition_phrases=edition_phrases,
