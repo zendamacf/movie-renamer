@@ -16,6 +16,7 @@ def _write(path: Path, content: bytes) -> None:
 
 
 def test_apply_exits_nonzero_on_execution_errors(tmp_path: Path, monkeypatch) -> None:
+	monkeypatch.chdir(tmp_path)
 	source_dir = tmp_path / 'src'
 	target_dir = tmp_path / 'dst'
 	target_dir.mkdir(parents=True, exist_ok=True)
@@ -60,7 +61,7 @@ def test_apply_exits_nonzero_on_execution_errors(tmp_path: Path, monkeypatch) ->
 
 	assert exc_info.value.exit_code == 1
 
-	batches = load_batches(target_dir)
+	batches = load_batches()
 	assert len(batches) == 1
 	assert batches[0].status == 'partial'
 

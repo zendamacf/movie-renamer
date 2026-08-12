@@ -20,6 +20,9 @@ dist/
 coverage.xml
 htmlcov/
 
+# History
+batches.json
+
 # Editor/IDE
 .vscode/
 .idea/
