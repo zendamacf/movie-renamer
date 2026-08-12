@@ -99,6 +99,31 @@ def test_planner_primary_video_selection_and_edition_suffix(tmp_path: Path) -> N
 	)
 
 
+def test_planner_subtitle_matching_video_stem_uses_default_lang(tmp_path: Path) -> None:
+	source_dir = tmp_path / 'src'
+	target_dir = tmp_path / 'dst'
+
+	folder = source_dir / 'Ultraviolet.2006.BluRay.1080p.x264.YIFY'
+	video_path = folder / 'Ultraviolet.2006.BluRay.1080p.x264.YIFY.mp4'
+	sub_path = folder / 'Ultraviolet.2006.BluRay.1080p.x264.YIFY.srt'
+	_write(video_path, b'video-bytes' * 10)
+	_write(sub_path, b'subtitle-bytes')
+
+	actions = plan_actions(
+		folder_scans=scan_movie_folders(source_dir, recursive=False),
+		target_dir=target_dir,
+		operation='copy',
+		default_lang='en',
+		ignore_globs=[],
+	)
+
+	expected_subtitle_target = target_dir / 'Ultraviolet (2006)' / 'Ultraviolet (2006).en.srt'
+	assert any(
+		a.action == 'copy' and a.target == expected_subtitle_target and a.source == sub_path
+		for a in actions
+	)
+
+
 def test_planner_subtitle_lang_inference_eng_and_english(tmp_path: Path) -> None:
 	source_dir = tmp_path / 'src'
 	target_dir = tmp_path / 'dst'
