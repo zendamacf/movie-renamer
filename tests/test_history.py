@@ -21,7 +21,10 @@ def _write(path: Path, content: bytes) -> None:
 	path.write_bytes(content)
 
 
-def test_history_undo_move_batch(tmp_path: Path) -> None:
+def test_history_undo_move_batch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+	# Ensure history file is written under the temp dir.
+	# `history.py` uses `Path.cwd() / batches.json` for storage.
+	monkeypatch.chdir(tmp_path)
 	source_dir = tmp_path / 'src'
 	target_dir = tmp_path / 'dst'
 	target_dir.mkdir(parents=True, exist_ok=True)
@@ -50,16 +53,19 @@ def test_history_undo_move_batch(tmp_path: Path) -> None:
 	assert video_path.exists()
 	assert video_path.read_bytes() == b'video-content'
 
-	updated = load_batches(target_dir)
+	updated = load_batches()
 	assert updated[0].undone_at is not None
-	assert latest_undoable_batch(target_dir) is None
+	assert latest_undoable_batch() is None
 
 
-def test_load_batches_raises_on_corrupt_history_file(tmp_path: Path) -> None:
+def test_load_batches_raises_on_corrupt_history_file(
+	tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+	monkeypatch.chdir(tmp_path)
 	target_dir = tmp_path / 'dst'
 	target_dir.mkdir(parents=True, exist_ok=True)
-	history_file(target_dir).parent.mkdir(parents=True, exist_ok=True)
-	history_file(target_dir).write_text('{not valid json', encoding='utf-8')
+	history_file().parent.mkdir(parents=True, exist_ok=True)
+	history_file().write_text('{not valid json', encoding='utf-8')
 
 	with pytest.raises(ValueError, match='Corrupt history file'):
-		load_batches(target_dir)
+		load_batches()

@@ -14,6 +14,7 @@ def _write(path: Path, content: bytes) -> None:
 
 
 def test_confirm_each_declines_all_actions(tmp_path: Path, monkeypatch) -> None:
+	monkeypatch.chdir(tmp_path)
 	source_dir = tmp_path / 'src'
 	target_dir = tmp_path / 'dst'
 	target_dir.mkdir(parents=True, exist_ok=True)

@@ -82,20 +82,20 @@ class UndoSummary:
 	errors: int = 0
 
 
-def history_dir(target_dir: Path) -> Path:
-	return target_dir / '.movie-renamer'
+def history_dir() -> Path:
+	return Path.cwd()
 
 
-def history_file(target_dir: Path) -> Path:
-	return history_dir(target_dir) / 'batches.json'
+def history_file() -> Path:
+	return history_dir() / 'batches.json'
 
 
-def _lock_path(target_dir: Path) -> Path:
-	return history_dir(target_dir) / 'batches.json.lock'
+def _lock_path() -> Path:
+	return history_dir() / 'batches.json.lock'
 
 
-def _load_store(target_dir: Path) -> dict:
-	path = history_file(target_dir)
+def _load_store() -> dict:
+	path = history_file()
 	if not path.exists():
 		return {'batches': []}
 	try:
@@ -104,8 +104,8 @@ def _load_store(target_dir: Path) -> dict:
 		raise ValueError(f'Corrupt history file: {path}') from e
 
 
-def _save_store(target_dir: Path, store: dict) -> None:
-	path = history_file(target_dir)
+def _save_store(store: dict) -> None:
+	path = history_file()
 	path.parent.mkdir(parents=True, exist_ok=True)
 	payload = json.dumps(store, indent=2)
 	with tempfile.NamedTemporaryFile(
@@ -121,8 +121,8 @@ def _save_store(target_dir: Path, store: dict) -> None:
 	tmp_path.replace(path)
 
 
-def load_batches(target_dir: Path) -> list[BatchRecord]:
-	store = _load_store(target_dir)
+def load_batches() -> list[BatchRecord]:
+	store = _load_store()
 	return [BatchRecord.from_dict(b) for b in store.get('batches', [])]
 
 
@@ -142,24 +142,24 @@ def append_batch(
 		operations=operations,
 		status=status,
 	)
-	lock = FileLock(_lock_path(target_dir))
+	lock = FileLock(_lock_path())
 	with lock:
-		store = _load_store(target_dir)
+		store = _load_store()
 		store.setdefault('batches', []).append(batch.to_dict())
-		_save_store(target_dir, store)
+		_save_store(store)
 	return batch
 
 
-def _mark_batch_undone(target_dir: Path, batch_id: str) -> None:
-	lock = FileLock(_lock_path(target_dir))
+def _mark_batch_undone(batch_id: str) -> None:
+	lock = FileLock(_lock_path())
 	with lock:
-		store = _load_store(target_dir)
+		store = _load_store()
 		now = datetime.now(UTC).isoformat()
 		for batch in store.get('batches', []):
 			if batch['id'] == batch_id:
 				batch['undone_at'] = now
 				break
-		_save_store(target_dir, store)
+		_save_store(store)
 
 
 def _remove_empty_parents(path: Path, *, stop_at: Path) -> None:
@@ -179,7 +179,7 @@ def undo_batch(
 	*,
 	verbose: bool = False,
 ) -> UndoSummary:
-	batches = load_batches(target_dir)
+	batches = load_batches()
 	batch = next((b for b in batches if b.id == batch_id), None)
 	if batch is None:
 		raise ValueError(f'Batch not found: {batch_id!r}')
@@ -217,13 +217,13 @@ def undo_batch(
 			)
 
 	if errors == 0:
-		_mark_batch_undone(target_dir, batch_id)
+		_mark_batch_undone(batch_id)
 
 	return UndoSummary(reverted=reverted, skips=skips, errors=errors)
 
 
-def latest_undoable_batch(target_dir: Path) -> BatchRecord | None:
-	for batch in reversed(load_batches(target_dir)):
+def latest_undoable_batch() -> BatchRecord | None:
+	for batch in reversed(load_batches()):
 		if batch.undone_at is None and batch.operations:
 			return batch
 	return None

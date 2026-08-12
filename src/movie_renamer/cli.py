@@ -108,7 +108,7 @@ def main(
 		from .history import latest_undoable_batch, load_batches, undo_batch
 
 		if history:
-			batches = load_batches(target_dir)
+			batches = load_batches()
 			if not batches:
 				typer.echo('No rename batches recorded.')
 				return
@@ -127,7 +127,7 @@ def main(
 				raise typer.BadParameter('Batch id provided but --undo flag was not set.')
 			batch_id = undo_id
 		elif undo:
-			latest = latest_undoable_batch(target_dir)
+			latest = latest_undoable_batch()
 			if latest is None:
 				raise typer.BadParameter('No undoable rename batches found.')
 			batch_id = latest.id
