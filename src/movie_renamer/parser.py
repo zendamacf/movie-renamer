@@ -12,7 +12,13 @@ _EDITION_PHRASES = [
 	'Extended',
 	'Unrated',
 	'Theatrical',
+	'Remastered',
 ]
+
+# Short scene-name tokens that map onto a canonical edition phrase.
+_EDITION_ALIASES = {
+	'dc': "Director's Cut",
+}
 
 # Common release-noise tokens we want to remove before deriving the title.
 _NOISE_TOKENS = [
@@ -117,15 +123,24 @@ def extract_year(text: str) -> int | None:
 	return None
 
 
+def _edition_needles(edition_phrases: list[str]) -> list[tuple[str, str]]:
+	# (match text, canonical edition). Canonical phrases first, then aliases.
+	needles = [(phrase, phrase) for phrase in edition_phrases]
+	for alias, canonical in _EDITION_ALIASES.items():
+		if canonical in edition_phrases:
+			needles.append((alias, canonical))
+	return needles
+
+
 def extract_edition(text: str, *, edition_phrases: list[str] | None = None) -> str | None:
 	# Case-insensitive match, but preserve the canonical punctuation/casing from our phrases.
 	# Normalize common separators so `Director's.Cut` matches `Director's Cut`.
 	edition_phrases = edition_phrases or _EDITION_PHRASES
 	lower = text.lower().replace('.', ' ').replace('_', ' ')
 	lower = re.sub(r'\s+', ' ', lower).strip()
-	for phrase in edition_phrases:
-		if phrase.lower() in lower:
-			return phrase
+	for needle, canonical in _edition_needles(edition_phrases):
+		if re.search(rf'(?<!\w){re.escape(needle.lower())}(?!\w)', lower):
+			return canonical
 	return None
 
 
@@ -159,10 +174,17 @@ def strip_release_tags(text: str) -> str:
 
 
 def _cleanup_title_tokens(text: str, *, edition_phrases: list[str]) -> str:
-	# Remove edition phrase from the title source if present.
+	# Remove the detected edition (canonical phrase or alias) from the title source.
 	edition = extract_edition(text, edition_phrases=edition_phrases)
 	if edition:
-		text = re.sub(re.escape(edition), ' ', text, flags=re.IGNORECASE)
+		for needle, canonical in _edition_needles(edition_phrases):
+			if canonical == edition:
+				text = re.sub(
+					rf'(?<!\w){re.escape(needle)}(?!\w)',
+					' ',
+					text,
+					flags=re.IGNORECASE,
+				)
 
 	# Remove year tokens.
 	year = extract_year(text)

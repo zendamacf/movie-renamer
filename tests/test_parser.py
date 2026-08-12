@@ -34,6 +34,18 @@ from movie_renamer.parser import MovieMetadata, parse_movie_name
 			"Director's Cut",
 		),
 		(
+			'The.Last.Of.The.Mohicans.1992.DC.1080p.BluRay.x265-RARBG.mp4',
+			'The Last of the Mohicans',
+			1992,
+			"Director's Cut",
+		),
+		(
+			'The.Last.Of.The.Mohicans.DC.1992.1080p.BluRay.x265-RARBG.mp4',
+			'The Last of the Mohicans',
+			1992,
+			"Director's Cut",
+		),
+		(
 			'Ultraviolet (2006) [1080p]',
 			'Ultraviolet',
 			2006,
