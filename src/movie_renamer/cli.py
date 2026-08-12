@@ -28,12 +28,8 @@ RECURSIVE_OPT = typer.Option(False, '--recursive', help='Descend into subfolders
 IGNORE_OPT = typer.Option([], '--ignore', help='Additional glob patterns to skip (repeatable).')
 DEFAULT_LANG_OPT = typer.Option('en', '--default-lang', help='Subtitle language when not detected.')
 VERBOSE_OPT = typer.Option(False, '-v', '--verbose', help='Show parsing details per folder.')
-CONFIRM_EACH_OPT = typer.Option(
-	False, '--confirm', help='When applying, prompt for each move before executing.'
-)
-HISTORY_OPT = typer.Option(
-	False, '--history', help='List rename batch history for the target directory.'
-)
+CONFIRM_EACH_OPT = typer.Option(False, '--confirm', help='When applying, prompt for each move before executing.')
+HISTORY_OPT = typer.Option(False, '--history', help='List rename batch history for the target directory.')
 UNDO_OPT = typer.Option(
 	False,
 	'--undo',
@@ -86,13 +82,9 @@ def main(
 		try:
 			data = json.loads(DEFAULT_CONFIG_PATH.read_text(encoding='utf-8'))
 		except json.JSONDecodeError as e:
-			raise typer.BadParameter(
-				f'Invalid JSON in config {DEFAULT_CONFIG_PATH}: {e}'
-			) from e
+			raise typer.BadParameter(f'Invalid JSON in config {DEFAULT_CONFIG_PATH}: {e}') from e
 		if not isinstance(data, dict):
-			raise typer.BadParameter(
-				f'Config root must be a JSON object: {DEFAULT_CONFIG_PATH}'
-			)
+			raise typer.BadParameter(f'Config root must be a JSON object: {DEFAULT_CONFIG_PATH}')
 		config_source = data.get('source_dir')
 		config_target = data.get('target_dir')
 		if source_dir is None and isinstance(config_source, str) and config_source.strip():
@@ -104,9 +96,7 @@ def main(
 
 	# After config overrides, validate target_dir (required for all modes).
 	if target_dir is None:
-		raise typer.BadParameter(
-			'Missing `target_dir` (provide --target-dir or set `target_dir` in config.json).'
-		)
+		raise typer.BadParameter('Missing `target_dir` (provide --target-dir or set `target_dir` in config.json).')
 	if not target_dir.exists() or not target_dir.is_dir():
 		raise typer.BadParameter(f'`target_dir` must be an existing directory: {target_dir}')
 
@@ -124,10 +114,7 @@ def main(
 			for batch in batches:
 				status = 'undone' if batch.undone_at else batch.status
 				moves = sum(1 for op in batch.operations if op.action == 'move')
-				typer.echo(
-					f'{batch.id} [{status}] created={batch.created_at} '
-					f'move={moves} ops={len(batch.operations)}'
-				)
+				typer.echo(f'{batch.id} [{status}] created={batch.created_at} move={moves} ops={len(batch.operations)}')
 			return
 
 		batch_id: str | None = None
@@ -145,17 +132,14 @@ def main(
 		typer.echo(f'Undoing batch {batch_id}...')
 		undo_result = undo_batch(target_dir, batch_id, verbose=verbose)
 		typer.echo(
-			f'Summary (undo): REVERTED={undo_result.reverted} SKIP={undo_result.skips} '
-			f'ERRORS={undo_result.errors}'
+			f'Summary (undo): REVERTED={undo_result.reverted} SKIP={undo_result.skips} ERRORS={undo_result.errors}'
 		)
 		if undo_result.errors > 0:
 			raise typer.Exit(code=1)
 		return
 
 	if source_dir is None:
-		raise typer.BadParameter(
-			'Missing `source_dir` (provide --source-dir or set `source_dir` in config.json).'
-		)
+		raise typer.BadParameter('Missing `source_dir` (provide --source-dir or set `source_dir` in config.json).')
 	if not source_dir.exists() or not source_dir.is_dir():
 		raise typer.BadParameter(f'`source_dir` must be an existing directory: {source_dir}')
 
@@ -186,10 +170,7 @@ def main(
 		dest = _display_target(a.target, target_dir)
 		typer.echo(f'- {action_label} {src_name} -> {dest}')
 		if verbose and a.metadata is not None:
-			typer.echo(
-				f'  metadata: title={a.metadata.title!r} year={a.metadata.year} '
-				f'edition={a.metadata.edition!r}'
-			)
+			typer.echo(f'  metadata: title={a.metadata.title!r} year={a.metadata.year} edition={a.metadata.edition!r}')
 
 	typer.echo('')
 
@@ -197,14 +178,17 @@ def main(
 	# Print every file found under each movie folder (including nested directories) that
 	# was not part of the planned MOVE sources. This helps spot when files are missed.
 	moved_sources = {
-		a.source.resolve()
-		for a in actions
-		if a.action == 'move' and a.source is not None and a.target is not None
+		a.source.resolve() for a in actions if a.action == 'move' and a.source is not None and a.target is not None
 	}
 	movie_folders = {fs.folder.resolve() for fs in folder_scans}
+	subtitle_exts = {'.srt', '.vtt'}
 	skip_label = label('SKIP', color='bright_black')
+	subtitle_skip_label = label('SKIP', color='orange')
 	# Keep output stable/deterministic for tests and diffability.
 	for movie_folder in sorted(movie_folders, key=lambda p: str(p)):
+		subtitle_skips: list[str] = []
+		other_skips: list[str] = []
+
 		for file_path in sorted(movie_folder.rglob('*'), key=lambda p: str(p)):
 			if not file_path.is_file():
 				continue
@@ -215,13 +199,21 @@ def main(
 			except ValueError:
 				# Should not happen, but keep output usable if paths are oddly mounted.
 				rel_path = str(file_path)
+
+			if file_path.suffix.lower() in subtitle_exts:
+				subtitle_skips.append(rel_path)
+			else:
+				other_skips.append(rel_path)
+
+		# Print subtitle skips in orange first, then the remaining skips.
+		# This keeps the overall output grouped: MOVE (above) -> subtitle SKIP (this block) -> other SKIP (below).
+		for rel_path in subtitle_skips:
+			typer.echo(f'- {subtitle_skip_label} {rel_path}')
+		for rel_path in other_skips:
 			typer.echo(f'- {skip_label} {rel_path}')
 
 	if not apply:
-		typer.echo(
-			f'Summary (dry-run): MOVE={counts["move"]} SKIP={counts["skip"]} '
-			f'({VIDEO_EXT_HINT})'
-		)
+		typer.echo(f'Summary (dry-run): MOVE={counts["move"]} SKIP={counts["skip"]} ({VIDEO_EXT_HINT})')
 		return
 
 	if confirm_each:
@@ -250,10 +242,7 @@ def main(
 
 	exec_result = execute_actions(actions, verbose=verbose)
 	summary = exec_result.summary
-	typer.echo(
-		f'Summary (executed): MOVE={summary.moves} SKIP={summary.skips} '
-		f'ERRORS={summary.errors}'
-	)
+	typer.echo(f'Summary (executed): MOVE={summary.moves} SKIP={summary.skips} ERRORS={summary.errors}')
 	exit_code = 0
 	if summary.errors > 0:
 		exit_code = 1
@@ -266,9 +255,7 @@ def main(
 			operations=exec_result.executed,
 			status=batch_status,
 		)
-		typer.echo(
-			f'Batch recorded ({batch_status}): {batch.id} ({len(exec_result.executed)} operations)'
-		)
+		typer.echo(f'Batch recorded ({batch_status}): {batch.id} ({len(exec_result.executed)} operations)')
 		if batch_status == 'partial':
 			typer.echo('Warning: batch had errors; undo will only revert successful operations.')
 

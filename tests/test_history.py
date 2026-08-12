@@ -58,9 +58,7 @@ def test_history_undo_move_batch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 	assert latest_undoable_batch() is None
 
 
-def test_load_batches_raises_on_corrupt_history_file(
-	tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_load_batches_raises_on_corrupt_history_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 	monkeypatch.chdir(tmp_path)
 	target_dir = tmp_path / 'dst'
 	target_dir.mkdir(parents=True, exist_ok=True)

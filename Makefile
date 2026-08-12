@@ -23,9 +23,11 @@ test:
 
 lint:
 	"$(RUFF)" check
+	"$(RUFF)" format --check
 
 lint-fix:
 	"$(RUFF)" check --fix
+	"$(RUFF)" format
 
 typecheck:
 	"$(TY)" check

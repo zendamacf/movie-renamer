@@ -45,12 +45,8 @@ def test_planned_operations_print_target_dir_once(tmp_path: Path, monkeypatch) -
 	move_lines = [m for m in messages if m.startswith('- MOVE ')]
 	assert len(move_lines) == 2
 	assert all(str(target_dir) not in m for m in move_lines)
-	assert any(
-		'-> Single White Female (1992)/Single White Female (1992).mp4' in m for m in move_lines
-	)
-	assert any(
-		'-> Single White Female (1992)/Single White Female (1992).en.srt' in m for m in move_lines
-	)
+	assert any('-> Single White Female (1992)/Single White Female (1992).mp4' in m for m in move_lines)
+	assert any('-> Single White Female (1992)/Single White Female (1992).en.srt' in m for m in move_lines)
 
 
 def test_planned_operations_skip_logs_all_nested_files(tmp_path: Path, monkeypatch) -> None:
@@ -91,13 +87,8 @@ def test_planned_operations_skip_logs_all_nested_files(tmp_path: Path, monkeypat
 	)
 
 	skip_lines = [m for m in messages if m.startswith('- SKIP ')]
-	assert any(
-		'Movie.Title.2020.1080p.BluRay.x265-RARBG/Nested/Movie.Title.2020.en.srt' in m
-		for m in skip_lines
-	)
-	assert any(
-		'Movie.Title.2020.1080p.BluRay.x265-RARBG/Nested/something.jpg' in m for m in skip_lines
-	)
+	assert any('Movie.Title.2020.1080p.BluRay.x265-RARBG/Nested/Movie.Title.2020.en.srt' in m for m in skip_lines)
+	assert any('Movie.Title.2020.1080p.BluRay.x265-RARBG/Nested/something.jpg' in m for m in skip_lines)
 
 	video_rel = video_path.relative_to(source_dir).as_posix()
 	sub_rel = sub_path.relative_to(source_dir).as_posix()
