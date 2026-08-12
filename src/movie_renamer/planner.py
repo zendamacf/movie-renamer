@@ -124,7 +124,12 @@ def plan_actions(
 
 				target = folder_target / video_name(meta, ext=f.path.suffix.lstrip('.'))
 			elif f.kind == 'subtitle':
-				lang = f.subtitle_lang or default_lang
+				# Subtitles that mirror the video basename (e.g. release-name.srt) are not
+				# language-tagged. Avoid mis-parsing release tokens like "YIFY" as a lang code.
+				if primary_path is not None and f.path.stem == primary_path.stem:
+					lang = default_lang
+				else:
+					lang = f.subtitle_lang or default_lang
 				target = folder_target / subtitle_name(meta, lang=lang)
 			else:
 				continue
