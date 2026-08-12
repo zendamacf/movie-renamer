@@ -31,14 +31,17 @@ VERBOSE_OPT = typer.Option(False, '-v', '--verbose', help='Show parsing details 
 CONFIRM_EACH_OPT = typer.Option(
 	False, '--confirm', help='When applying, prompt for each move before executing.'
 )
-LIST_BATCHES_OPT = typer.Option(
-	False, '--list-batches', help='List rename batch history for the target directory.'
-)
-UNDO_LAST_OPT = typer.Option(
-	False, '--undo-last', help='Undo the most recent rename batch in the target directory.'
+HISTORY_OPT = typer.Option(
+	False, '--history', help='List rename batch history for the target directory.'
 )
 UNDO_OPT = typer.Option(
-	None, '--undo', help='Undo a rename batch by id (see --list-batches).'
+	False,
+	'--undo',
+	help='Undo the last rename batch, or (when followed by an id) undo that specific batch.',
+)
+UNDO_ID_ARG = typer.Argument(
+	None,
+	help='Batch id to undo (only used with --undo).',
 )
 
 
@@ -52,9 +55,9 @@ def main(
 	default_lang: str = DEFAULT_LANG_OPT,
 	verbose: bool = VERBOSE_OPT,
 	confirm_each: bool = CONFIRM_EACH_OPT,
-	list_batches: bool = LIST_BATCHES_OPT,
-	undo_last: bool = UNDO_LAST_OPT,
-	undo: str | None = UNDO_OPT,
+	history: bool = HISTORY_OPT,
+	undo: bool = UNDO_OPT,
+	undo_id: str | None = UNDO_ID_ARG,
 ) -> None:
 	"""
 	Plan movie folder renames into a Plex/Jellyfin-friendly `Title (Year)/` structure.
@@ -98,13 +101,13 @@ def main(
 	if not target_dir.exists() or not target_dir.is_dir():
 		raise typer.BadParameter(f'`target_dir` must be an existing directory: {target_dir}')
 
-	if undo_last and undo is not None:
-		raise typer.BadParameter('Flags --undo-last and --undo are mutually exclusive.')
+	if history and (undo or undo_id is not None):
+		raise typer.BadParameter('Flags --history and --undo are mutually exclusive.')
 
-	if list_batches or undo_last or undo is not None:
+	if history or undo or undo_id is not None:
 		from .history import latest_undoable_batch, load_batches, undo_batch
 
-		if list_batches:
+		if history:
 			batches = load_batches(target_dir)
 			if not batches:
 				typer.echo('No rename batches recorded.')
@@ -118,8 +121,12 @@ def main(
 				)
 			return
 
-		batch_id = undo
-		if undo_last:
+		batch_id: str | None = None
+		if undo_id is not None:
+			if not undo:
+				raise typer.BadParameter('Batch id provided but --undo flag was not set.')
+			batch_id = undo_id
+		elif undo:
 			latest = latest_undoable_batch(target_dir)
 			if latest is None:
 				raise typer.BadParameter('No undoable rename batches found.')

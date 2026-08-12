@@ -60,9 +60,9 @@ def test_confirm_each_declines_all_actions(tmp_path: Path, monkeypatch) -> None:
 		default_lang='en',
 		verbose=False,
 		confirm_each=True,
-		list_batches=False,
-		undo_last=False,
-		undo=None,
+		history=False,
+		undo=False,
+		undo_id=None,
 	)
 
 	# We should have prompted at least once.

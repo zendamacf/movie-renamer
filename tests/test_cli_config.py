@@ -38,9 +38,9 @@ def test_config_can_supply_source_and_target_dirs(tmp_path: Path, monkeypatch) -
 		default_lang='en',
 		verbose=False,
 		confirm_each=False,
-		list_batches=False,
-		undo_last=False,
-		undo=None,
+		history=False,
+		undo=False,
+		undo_id=None,
 	)
 
 
@@ -74,9 +74,9 @@ def test_cli_source_dir_overrides_config(tmp_path: Path, monkeypatch) -> None:
 		default_lang='en',
 		verbose=False,
 		confirm_each=False,
-		list_batches=False,
-		undo_last=False,
-		undo=None,
+		history=False,
+		undo=False,
+		undo_id=None,
 	)
 
 
@@ -110,9 +110,9 @@ def test_config_load_logs_message(tmp_path: Path, monkeypatch) -> None:
 		default_lang='en',
 		verbose=False,
 		confirm_each=False,
-		list_batches=False,
-		undo_last=False,
-		undo=None,
+		history=False,
+		undo=False,
+		undo_id=None,
 	)
 
 	assert any('Using settings from config.json' in msg for msg in messages)
@@ -137,7 +137,7 @@ def test_invalid_config_json_raises_bad_parameter(tmp_path: Path, monkeypatch) -
 			default_lang='en',
 			verbose=False,
 			confirm_each=False,
-			list_batches=False,
-			undo_last=False,
-			undo=None,
+			history=False,
+			undo=False,
+			undo_id=None,
 		)
