@@ -221,9 +221,7 @@ def main(
 
 	misc_suffix = f' MISC={misc_count}' if misc_count else ''
 	if not apply:
-		typer.echo(
-			f'Summary (dry-run): MOVE={counts["move"]} SKIP={counts["skip"]}{misc_suffix} ({VIDEO_EXT_HINT})'
-		)
+		typer.echo(f'Summary (dry-run): MOVE={counts["move"]} SKIP={counts["skip"]}{misc_suffix} ({VIDEO_EXT_HINT})')
 		return
 
 	if confirm_each:
