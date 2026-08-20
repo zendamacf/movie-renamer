@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import fnmatch
+from collections import defaultdict
 from collections.abc import Iterable
 from pathlib import Path
 
-from movie_renamer.models import FolderScan, PlannedAction
+from movie_renamer.models import FileCandidate, FolderScan, PlannedAction
 from movie_renamer.naming import folder_name, subtitle_name, video_name
 from movie_renamer.parser import MovieMetadata, extract_edition, parse_movie_name
 
@@ -35,6 +36,17 @@ def _is_in_subs_folder(path: Path) -> bool:
 def _subtitle_looks_release_named(subtitle_path: Path, meta: MovieMetadata) -> bool:
 	# Release-style sidecars usually include the movie year (e.g. `Troy.2004.en.srt`).
 	return str(meta.year) in subtitle_path.stem
+
+
+def _subtitle_preference(candidate: FileCandidate, explicit_lang: bool) -> tuple:
+	# Lower sorts first. Prefer regular (non-forced/non-SDH) explicitly tagged files.
+	return (
+		candidate.subtitle_forced,
+		candidate.subtitle_sdh,
+		not explicit_lang,
+		-(candidate.size_bytes or 0),
+		str(candidate.path),
+	)
 
 
 def _try_parse_metadata_from_video_or_folder(folder_scan: FolderScan) -> MovieMetadata | None:
@@ -87,6 +99,9 @@ def plan_actions(
 			continue
 
 		folder_target = target_dir / folder_name(meta)
+		# Collect subtitle candidates and pick a winner per target so first-seen
+		# forced tracks cannot steal the regular language filename.
+		subtitle_candidates: list[tuple[FileCandidate, Path, bool]] = []
 
 		for f in folder_scan.files:
 			if _matches_any_glob(f.path, ignore_globs):
@@ -111,20 +126,7 @@ def plan_actions(
 				)
 				continue
 
-			if f.kind == 'video':
-				if primary_path is None or f.path != primary_path:
-					actions.append(
-						PlannedAction(
-							source=f.path,
-							target=None,
-							action='skip',
-							metadata=meta,
-						)
-					)
-					continue
-
-				target = folder_target / video_name(meta, ext=f.path.suffix.lstrip('.'))
-			elif f.kind == 'subtitle':
+			if f.kind == 'subtitle':
 				# If the primary movie indicates an edition (e.g. "Director's Cut"), try to ensure
 				# release-style subtitle sidecars match that same edition. Generic language files
 				# in `Subs/` (e.g. `16_English.srt`) are not edition-tagged and should still move.
@@ -147,14 +149,37 @@ def plan_actions(
 
 				# Subtitles that mirror the video basename (e.g. release-name.srt) are not
 				# language-tagged. Avoid mis-parsing release tokens like "YIFY" as a lang code.
-				if primary_path is not None and f.path.stem == primary_path.stem:
+				stem_matches_video = primary_path is not None and f.path.stem == primary_path.stem
+				if stem_matches_video:
 					lang = default_lang
+					explicit_lang = False
 				else:
 					lang = f.subtitle_lang or default_lang
-				target = folder_target / subtitle_name(meta, lang=lang)
-			else:
+					explicit_lang = f.subtitle_lang is not None
+				target = folder_target / subtitle_name(
+					meta,
+					lang=lang,
+					forced=f.subtitle_forced,
+					sdh=f.subtitle_sdh,
+				)
+				subtitle_candidates.append((f, target, explicit_lang))
 				continue
 
+			if f.kind != 'video':
+				continue
+
+			if primary_path is None or f.path != primary_path:
+				actions.append(
+					PlannedAction(
+						source=f.path,
+						target=None,
+						action='skip',
+						metadata=meta,
+					)
+				)
+				continue
+
+			target = folder_target / video_name(meta, ext=f.path.suffix.lstrip('.'))
 			if target.resolve() in used_targets:
 				actions.append(
 					PlannedAction(
@@ -175,5 +200,35 @@ def plan_actions(
 					metadata=meta,
 				)
 			)
+
+		by_target: dict[Path, list[tuple[FileCandidate, bool]]] = defaultdict(list)
+		for candidate, target, explicit_lang in subtitle_candidates:
+			by_target[target].append((candidate, explicit_lang))
+
+		for target, group in by_target.items():
+			resolved = target.resolve()
+			if resolved in used_targets:
+				for candidate, _explicit_lang in group:
+					actions.append(
+						PlannedAction(
+							source=candidate.path,
+							target=target,
+							action='skip',
+							metadata=meta,
+						)
+					)
+				continue
+
+			winner, _explicit = min(group, key=lambda item: _subtitle_preference(item[0], item[1]))
+			used_targets.add(resolved)
+			for candidate, _explicit_lang in group:
+				actions.append(
+					PlannedAction(
+						source=candidate.path,
+						target=target,
+						action='move' if candidate.path == winner.path else 'skip',
+						metadata=meta,
+					)
+				)
 
 	return actions

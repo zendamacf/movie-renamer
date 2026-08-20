@@ -3,12 +3,19 @@ from __future__ import annotations
 from pathlib import Path
 
 from movie_renamer.planner import plan_actions
-from movie_renamer.scanner import scan_movie_folders
+from movie_renamer.scanner import parse_subtitle_filename, scan_movie_folders
 
 
 def _write(path: Path, content: bytes) -> None:
 	path.parent.mkdir(parents=True, exist_ok=True)
 	path.write_bytes(content)
+
+
+def test_parse_subtitle_filename_forced_and_regular_english() -> None:
+	assert parse_subtitle_filename('English.eng.srt') == ('en', False, False)
+	assert parse_subtitle_filename('English forced.eng.srt') == ('en', True, False)
+	assert parse_subtitle_filename('Forced.eng.srt') == ('en', True, False)
+	assert parse_subtitle_filename('SDH.eng.HI.srt') == ('en', False, True)
 
 
 def test_planner_plans_primary_video_and_skips_promo_and_junk(tmp_path: Path) -> None:
@@ -187,7 +194,7 @@ def test_planner_subtitle_forced_lang_parsing(tmp_path: Path) -> None:
 		ignore_globs=[],
 	)
 
-	expected_en_target = target_dir / 'Ultraviolet (2006)' / 'Ultraviolet (2006).en.srt'
+	expected_en_target = target_dir / 'Ultraviolet (2006)' / 'Ultraviolet (2006).en.forced.srt'
 	moved_sources = {
 		a.source for a in actions if a.action == 'move' and a.target == expected_en_target and a.source is not None
 	}
@@ -223,11 +230,44 @@ def test_planner_subtitle_sdh_lang_parsing(tmp_path: Path) -> None:
 		ignore_globs=[],
 	)
 
-	expected_en_target = target_dir / 'Ultraviolet (2006)' / 'Ultraviolet (2006).en.srt'
-	expected_es_target = target_dir / 'Ultraviolet (2006)' / 'Ultraviolet (2006).es.srt'
+	expected_en_target = target_dir / 'Ultraviolet (2006)' / 'Ultraviolet (2006).en.sdh.srt'
+	expected_es_target = target_dir / 'Ultraviolet (2006)' / 'Ultraviolet (2006).es.sdh.srt'
 
 	assert any(a.action == 'move' and a.target == expected_en_target and a.source == sub_path_sdh_eng for a in actions)
 	assert any(a.action == 'move' and a.target == expected_es_target and a.source == sub_path_sdh_spa for a in actions)
+
+
+def test_planner_prefers_regular_english_and_keeps_forced(tmp_path: Path) -> None:
+	source_dir = tmp_path / 'src'
+	target_dir = tmp_path / 'dst'
+
+	folder = source_dir / 'LA Originals (2020) [1080p] [WEBRip] [5.1] [YTS.MX]'
+	video_path = folder / 'LA.Originals.2020.1080p.WEBRip.x264.AAC5.1-[YTS.MX].mp4'
+	sidecar_path = folder / 'LA.Originals.2020.1080p.WEBRip.x264.AAC5.1-[YTS.MX].srt'
+	english_path = folder / 'Subs' / 'English.eng.srt'
+	forced_path = folder / 'Subs' / 'English forced.eng.srt'
+
+	_write(video_path, b'video-bytes' * 10)
+	_write(sidecar_path, b'subtitle-bytes-sidecar')
+	_write(english_path, b'subtitle-bytes-en')
+	_write(forced_path, b'subtitle-bytes-forced')
+
+	actions = plan_actions(
+		folder_scans=scan_movie_folders(source_dir, recursive=False),
+		target_dir=target_dir,
+		default_lang='en',
+		ignore_globs=[],
+	)
+
+	movie_dir = target_dir / 'La Originals (2020)'
+	expected_en_target = movie_dir / 'La Originals (2020).en.srt'
+	expected_forced_target = movie_dir / 'La Originals (2020).en.forced.srt'
+
+	assert any(a.action == 'move' and a.target == expected_en_target and a.source == english_path for a in actions)
+	assert any(a.action == 'move' and a.target == expected_forced_target and a.source == forced_path for a in actions)
+	assert any(a.action == 'skip' and a.source == sidecar_path for a in actions)
+	assert not any(a.action == 'move' and a.source == sidecar_path for a in actions)
+	assert not any(a.action == 'move' and a.source == forced_path and a.target == expected_en_target for a in actions)
 
 
 def test_planner_subtitles_match_movie_edition_when_present(tmp_path: Path) -> None:

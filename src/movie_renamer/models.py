@@ -16,6 +16,8 @@ class FileCandidate:
 	kind: FileKind
 	size_bytes: int | None = None
 	subtitle_lang: str | None = None
+	subtitle_forced: bool = False
+	subtitle_sdh: bool = False
 
 
 @dataclass(frozen=True)

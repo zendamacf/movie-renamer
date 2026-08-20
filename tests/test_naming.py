@@ -23,3 +23,9 @@ def test_subtitle_name_default_lang() -> None:
 def test_subtitle_name_with_edition() -> None:
 	meta = MovieMetadata(title='Troy', year=2004, edition="Director's Cut")
 	assert subtitle_name(meta) == "Troy (2004) {edition-Director's Cut}.en.srt"
+
+
+def test_subtitle_name_forced_and_sdh() -> None:
+	meta = MovieMetadata(title='Ultraviolet', year=2006, edition=None)
+	assert subtitle_name(meta, lang='en', forced=True) == 'Ultraviolet (2006).en.forced.srt'
+	assert subtitle_name(meta, lang='es', sdh=True) == 'Ultraviolet (2006).es.sdh.srt'

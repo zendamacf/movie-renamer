@@ -22,21 +22,24 @@ JUNK_FOLDER_NAMES = {'other', 'extras'}
 SAMPLE_FOLDER_NAMES = {'sample', 'samples'}
 
 
-def extract_subtitle_lang(subtitle_filename: str) -> str | None:
+def parse_subtitle_filename(subtitle_filename: str) -> tuple[str | None, bool, bool]:
 	"""
-	Best-effort language extraction from filenames like:
+	Best-effort language and flag extraction from filenames like:
 	- `movie.en.srt` / `movie.eng.srt`
 	- `movie.english.srt`
 	- `English.srt`
+	- `English forced.eng.srt`
 	- `Forced.eng.srt`
 	- `fre.srt` / `spa.srt`
 	- `forced.eng.srt` / `eng.forced.srt`
 	- `SDH.eng.HI.srt` / `eng.sdh.srt`
 	- `16_English.srt`
+
+	Returns `(lang, forced, sdh)`.
 	"""
 	suffix = subtitle_filename.lower().rsplit('.', 1)[-1]
 	if suffix not in {'srt', 'vtt'}:
-		return None
+		return None, False, False
 
 	def normalize_lang_token(token: str) -> str | None:
 		t = token.lower()
@@ -67,11 +70,14 @@ def extract_subtitle_lang(subtitle_filename: str) -> str | None:
 	# Examples we handle:
 	# - `Forced.eng.srt` / `forced.eng.srt` (forced + language token)
 	# - `eng.forced.srt` (language + forced token)
+	# - `English forced.eng.srt` (language name + forced + language token)
 	# - `SDH.eng.HI.srt` (sdh + language token, with extra tokens after)
 	# - `eng.sdh.srt` (language + sdh token)
 	stem = subtitle_filename[: -len(suffix) - 1]  # strip ".srt"/".vtt"
 	tokens = [t for t in re.split(r'[\.\s_-]+', stem) if t]
 	tokens_l = [t.lower() for t in tokens]
+	forced = 'forced' in tokens_l
+	sdh = 'sdh' in tokens_l
 
 	def _pick_lang_near_marker(marker: str) -> str | None:
 		for i, t in enumerate(tokens_l):
@@ -91,21 +97,25 @@ def extract_subtitle_lang(subtitle_filename: str) -> str | None:
 
 	lang = _pick_lang_near_marker('forced') or _pick_lang_near_marker('sdh')
 	if lang:
-		return lang
+		return lang, forced, sdh
 
 	# Match the last ".<lang>.<ext>" segment. Keep this after forced/sdh logic so we
 	# don't incorrectly parse later tokens like "HI" as the language.
 	m = re.search(r'\.(?P<lang>[a-zA-Z]{2,7})\.(srt|vtt)$', subtitle_filename, flags=re.IGNORECASE)
 	if m:
-		return normalize_lang_token(m.group('lang'))
+		return normalize_lang_token(m.group('lang')), forced, sdh
 
 	# Subs folder naming often uses just the language name/code.
 	parts = re.split(r'[^a-zA-Z]+', stem.lower())
 	for part in parts:
 		lang = normalize_lang_token(part)
 		if lang:
-			return lang
-	return None
+			return lang, forced, sdh
+	return None, forced, sdh
+
+
+def extract_subtitle_lang(subtitle_filename: str) -> str | None:
+	return parse_subtitle_filename(subtitle_filename)[0]
 
 
 def is_promo_image(filename_lower: str) -> bool:
@@ -130,11 +140,14 @@ def classify_file(path: Path) -> FileCandidate | None:
 		return FileCandidate(path=path, kind='video', size_bytes=path.stat().st_size)
 
 	if is_subtitle_file(path):
+		lang, forced, sdh = parse_subtitle_filename(path.name)
 		return FileCandidate(
 			path=path,
 			kind='subtitle',
 			size_bytes=path.stat().st_size,
-			subtitle_lang=extract_subtitle_lang(path.name),
+			subtitle_lang=lang,
+			subtitle_forced=forced,
+			subtitle_sdh=sdh,
 		)
 
 	# We ignore everything else at the scanner layer; planner decides skips where appropriate.
