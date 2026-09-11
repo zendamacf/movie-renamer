@@ -67,6 +67,7 @@ _NOISE_TOKENS = [
 	'avi',
 	'm4v',
 	'mov',
+	'webm',
 	'wmv',
 	# Subtitle extensions
 	'srt',
