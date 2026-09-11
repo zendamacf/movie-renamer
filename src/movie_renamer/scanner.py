@@ -7,7 +7,7 @@ from pathlib import Path
 
 from .models import FileCandidate, FolderScan
 
-VIDEO_EXTS = {'.mkv', '.mp4', '.avi', '.m4v', '.mov', '.wmv'}
+VIDEO_EXTS = {'.mkv', '.mp4', '.avi', '.m4v', '.mov', '.webm', '.wmv'}
 SUBTITLE_EXTS = {'.srt', '.vtt'}
 
 # Known promo image hosts from the plan.
