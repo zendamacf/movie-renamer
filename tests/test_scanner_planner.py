@@ -18,6 +18,14 @@ def test_parse_subtitle_filename_forced_and_regular_english() -> None:
 	assert parse_subtitle_filename('SDH.eng.HI.srt') == ('en', False, True)
 
 
+def test_parse_subtitle_filename_iso6392_b_codes() -> None:
+	assert parse_subtitle_filename('por.srt') == ('pt', False, False)
+	assert parse_subtitle_filename('ger.srt') == ('de', False, False)
+	assert parse_subtitle_filename('dut.srt') == ('nl', False, False)
+	assert parse_subtitle_filename('gre.srt') == ('el', False, False)
+	assert parse_subtitle_filename('movie.por.srt') == ('pt', False, False)
+
+
 def test_planner_plans_primary_video_and_skips_promo_and_junk(tmp_path: Path) -> None:
 	source_dir = tmp_path / 'src'
 	target_dir = tmp_path / 'dst'

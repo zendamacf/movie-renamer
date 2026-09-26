@@ -21,6 +21,113 @@ PROMO_HOST_PATTERNS = [
 JUNK_FOLDER_NAMES = {'other', 'extras'}
 SAMPLE_FOLDER_NAMES = {'sample', 'samples'}
 
+# ISO 639-1 codes plus common release naming (ISO 639-2/B/T and full language names).
+SUBTITLE_LANG_ALIASES: dict[str, str] = {
+	'english': 'en',
+	'eng': 'en',
+	'en': 'en',
+	'french': 'fr',
+	'fre': 'fr',
+	'fra': 'fr',
+	'fr': 'fr',
+	'spanish': 'es',
+	'spa': 'es',
+	'es': 'es',
+	'german': 'de',
+	'ger': 'de',
+	'deu': 'de',
+	'de': 'de',
+	'portuguese': 'pt',
+	'por': 'pt',
+	'pt': 'pt',
+	'dutch': 'nl',
+	'dut': 'nl',
+	'nld': 'nl',
+	'nl': 'nl',
+	'greek': 'el',
+	'gre': 'el',
+	'ell': 'el',
+	'el': 'el',
+	'italian': 'it',
+	'ita': 'it',
+	'it': 'it',
+	'russian': 'ru',
+	'rus': 'ru',
+	'ru': 'ru',
+	'japanese': 'ja',
+	'jpn': 'ja',
+	'ja': 'ja',
+	'chinese': 'zh',
+	'chi': 'zh',
+	'zho': 'zh',
+	'zh': 'zh',
+	'korean': 'ko',
+	'kor': 'ko',
+	'ko': 'ko',
+	'polish': 'pl',
+	'pol': 'pl',
+	'pl': 'pl',
+	'swedish': 'sv',
+	'swe': 'sv',
+	'sv': 'sv',
+	'norwegian': 'no',
+	'nor': 'no',
+	'no': 'no',
+	'danish': 'da',
+	'dan': 'da',
+	'da': 'da',
+	'finnish': 'fi',
+	'fin': 'fi',
+	'fi': 'fi',
+	'czech': 'cs',
+	'ces': 'cs',
+	'cze': 'cs',
+	'cs': 'cs',
+	'hungarian': 'hu',
+	'hun': 'hu',
+	'hu': 'hu',
+	'arabic': 'ar',
+	'ara': 'ar',
+	'ar': 'ar',
+	'hebrew': 'he',
+	'heb': 'he',
+	'he': 'he',
+	'turkish': 'tr',
+	'tur': 'tr',
+	'tr': 'tr',
+	'ukrainian': 'uk',
+	'ukr': 'uk',
+	'uk': 'uk',
+	'romanian': 'ro',
+	'rum': 'ro',
+	'ron': 'ro',
+	'ro': 'ro',
+	'catalan': 'ca',
+	'cat': 'ca',
+	'ca': 'ca',
+	'indonesian': 'id',
+	'ind': 'id',
+	'id': 'id',
+	'vietnamese': 'vi',
+	'vie': 'vi',
+	'vi': 'vi',
+	'thai': 'th',
+	'tha': 'th',
+	'th': 'th',
+	'croatian': 'hr',
+	'hrv': 'hr',
+	'hr': 'hr',
+	'serbian': 'sr',
+	'srp': 'sr',
+	'sr': 'sr',
+	'slovenian': 'sl',
+	'slv': 'sl',
+	'sl': 'sl',
+	'bulgarian': 'bg',
+	'bul': 'bg',
+	'bg': 'bg',
+}
+
 
 def parse_subtitle_filename(subtitle_filename: str) -> tuple[str | None, bool, bool]:
 	"""
@@ -43,26 +150,12 @@ def parse_subtitle_filename(subtitle_filename: str) -> tuple[str | None, bool, b
 
 	def normalize_lang_token(token: str) -> str | None:
 		t = token.lower()
-		# Common aliases we expect in the wild (and in our fixtures).
-		lang_aliases = {
-			'english': 'en',
-			'eng': 'en',
-			'en': 'en',
-			'french': 'fr',
-			'fre': 'fr',
-			'fr': 'fr',
-			'spanish': 'es',
-			'spa': 'es',
-			'es': 'es',
-		}
-		if t in lang_aliases:
-			return lang_aliases[t]
-		# Allow plain 2-letter codes.
+		if t in SUBTITLE_LANG_ALIASES:
+			return SUBTITLE_LANG_ALIASES[t]
+		# Allow plain 2-letter ISO 639-1 codes not listed above.
 		if len(t) == 2 and t.isalpha():
 			return t
-		# Fall back to the first two letters (e.g. "portuguese" -> "po").
-		if len(t) >= 3 and t.isalpha():
-			return t[:2]
+		# Do not truncate 3-letter tokens (e.g. "por" -> "po"); they are usually ISO 639-2.
 		return None
 
 	# Support "forced" and "sdh" releases in addition to basic language tagging.
