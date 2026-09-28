@@ -1,5 +1,6 @@
 {
   "source_dir": "./examples/source",
-  "target_dir": "./examples/output"
+  "target_dir": "./examples/output",
+  "ignore_globs": ["**/samples/**", "**/*.nfo"]
 }
 

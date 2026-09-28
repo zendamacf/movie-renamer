@@ -5,7 +5,7 @@ description = "Scan release-style movie folders and organise into Plex/Jellyfin-
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
-authors = [{ name = "Zach", email = "zach@example.com" }]
+authors = [{ name = "Zachary Lang", email = "zach.d.lang@gmail.com" }]
 dependencies = [
   "typer>=0.27.1",
   "filelock>=3.32.3",
@@ -35,7 +35,7 @@ testpaths = ["tests"]
 addopts = "-q --cov=src/movie_renamer --cov-report=term-missing --cov-report=xml:coverage.xml"
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py312"
 line-length = 120
 lint.select = ["E", "F", "I", "UP", "B"]
 lint.ignore = []
