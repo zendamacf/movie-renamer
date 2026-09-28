@@ -29,3 +29,9 @@ def test_subtitle_name_forced_and_sdh() -> None:
 	meta = MovieMetadata(title='Ultraviolet', year=2006, edition=None)
 	assert subtitle_name(meta, lang='en', forced=True) == 'Ultraviolet (2006).en.forced.srt'
 	assert subtitle_name(meta, lang='es', sdh=True) == 'Ultraviolet (2006).es.sdh.srt'
+
+
+def test_subtitle_name_preserves_extension() -> None:
+	meta = MovieMetadata(title='Ultraviolet', year=2006, edition=None)
+	assert subtitle_name(meta, ext='vtt') == 'Ultraviolet (2006).en.vtt'
+	assert subtitle_name(meta, ext='.vtt', lang='fr', forced=True) == 'Ultraviolet (2006).fr.forced.vtt'

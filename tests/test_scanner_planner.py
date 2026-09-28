@@ -77,6 +77,27 @@ def test_planner_subtitle_default_lang(tmp_path: Path) -> None:
 	assert any(a.action == 'move' and a.target == expected_subtitle_target and a.source == sub_path for a in actions)
 
 
+def test_planner_subtitle_vtt_extension(tmp_path: Path) -> None:
+	source_dir = tmp_path / 'src'
+	target_dir = tmp_path / 'dst'
+
+	folder = source_dir / 'Ultraviolet (2006) [1080p]'
+	video_path = folder / 'Ultraviolet (2006) [1080p].mkv'
+	sub_path = folder / 'Ultraviolet (2006) [1080p].en.vtt'
+	_write(video_path, b'video-bytes' * 10)
+	_write(sub_path, b'subtitle-bytes')
+
+	actions = plan_actions(
+		folder_scans=scan_movie_folders(source_dir, recursive=False),
+		target_dir=target_dir,
+		default_lang='en',
+		ignore_globs=[],
+	)
+
+	expected_subtitle_target = target_dir / 'Ultraviolet (2006)' / 'Ultraviolet (2006).en.vtt'
+	assert any(a.action == 'move' and a.target == expected_subtitle_target and a.source == sub_path for a in actions)
+
+
 def test_planner_primary_video_selection_and_edition_suffix(tmp_path: Path) -> None:
 	source_dir = tmp_path / 'src'
 	target_dir = tmp_path / 'dst'
