@@ -159,6 +159,7 @@ def plan_actions(
 				target = folder_target / subtitle_name(
 					meta,
 					lang=lang,
+					ext=f.path.suffix,
 					forced=f.subtitle_forced,
 					sdh=f.subtitle_sdh,
 				)

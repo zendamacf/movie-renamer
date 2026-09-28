@@ -19,9 +19,11 @@ def subtitle_name(
 	meta: MovieMetadata,
 	lang: str = 'en',
 	*,
+	ext: str = 'srt',
 	forced: bool = False,
 	sdh: bool = False,
 ) -> str:
+	ext = ext.lstrip('.')
 	base = folder_name(meta)
 	edition = f' {{edition-{meta.edition}}}' if meta.edition else ''
 	flags = ''
@@ -29,4 +31,4 @@ def subtitle_name(
 		flags += '.forced'
 	if sdh:
 		flags += '.sdh'
-	return f'{base}{edition}.{lang}{flags}.srt'
+	return f'{base}{edition}.{lang}{flags}.{ext}'
