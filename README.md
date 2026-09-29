@@ -2,6 +2,8 @@
 
 CLI that scans release-style movie folders and organises them into a Plex/Jellyfin-friendly layout.
 
+**Python:** requires 3.12+ (`requires-python` in `pyproject.toml`). CI runs the test suite on **3.12** and **3.13**.
+
 ## End-to-end example
 
 Suppose your downloads look like release folders and you want Plex-style `Title (Year)/` directories under a library root.
