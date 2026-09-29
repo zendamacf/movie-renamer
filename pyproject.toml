@@ -8,7 +8,7 @@ license = { text = "MIT" }
 authors = [{ name = "Zachary Lang", email = "zach.d.lang@gmail.com" }]
 dependencies = [
   "typer>=0.27.1",
-  "filelock>=3.32.3",
+  "filelock>=3.32.4",
 ]
 
 [project.optional-dependencies]
