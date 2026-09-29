@@ -118,7 +118,7 @@ These map directly to the targets in the root `Makefile`:
 
 ```bash
 make install     # install dev dependencies into .venv
-make test        # run tests (fails if line coverage drops below 79%; see pyproject.toml)
+make test        # run tests (fails if line coverage drops below threhold in pyproject.toml)
 make lint        # run linting
 make lint-fix   # fix any linting errors
 make typecheck   # run type checking
