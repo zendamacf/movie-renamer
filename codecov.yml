@@ -1,6 +1,15 @@
+# Project coverage floor is enforced in CI by pytest `--cov-fail-under` (see pyproject.toml).
+# Codecov project status mirrors the same baseline for pull requests when a token is configured.
 comment:
   layout: "reach, diff, flags, files"
   behavior: default
   require_changes: false
   require_base: false
   require_head: true
+
+coverage:
+  status:
+    project:
+      default:
+        target: 79%
+        threshold: 0%
