@@ -7,13 +7,13 @@ requires-python = ">=3.12"
 license = { text = "MIT" }
 authors = [{ name = "Zachary Lang", email = "zach.d.lang@gmail.com" }]
 dependencies = [
-  "typer>=0.27.1",
+  "typer>=0.27.2",
   "filelock>=3.32.4",
 ]
 
 [project.optional-dependencies]
 dev = [
-  "ruff>=0.16.4",
+  "ruff>=0.16.5",
   "ty>=0.0.74",
   "pytest-cov>=7.1.0",
   "pytest>=9.1.1",
