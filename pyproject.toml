@@ -17,7 +17,7 @@ dev = [
   "ty>=0.0.78",
   "pytest-cov>=7.1.0",
   "pytest>=9.1.1",
-  "towncrier>=25.8.0",
+  "towncrier>=26.9.0",
 ]
 
 [project.scripts]
