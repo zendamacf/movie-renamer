@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 <!-- towncrier -->
+## 1.0.1 (2026-11-07)
+
+### Misc
+
+- Bump ruff from 0.16.5 to 0.16.10. (#59, #63, #68, #71, #73)
+- Bump towncrier from 25.8.0 to 26.9.0. (#60)
+- Bump filelock from 3.32.4 to 4.0.9. (#61, #65, #67, #69, #72)
+- Bump ty from 0.0.75 to 0.0.84. (#62, #64, #66, #70)
+
+
 ## 1.0.0 (2026-09-30)
 
 ### Features
