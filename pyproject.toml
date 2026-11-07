@@ -1,6 +1,6 @@
 [project]
 name = "movie-renamer"
-version = "1.0.0"
+version = "1.0.1"
 description = "Scan release-style movie folders and organise into Plex/Jellyfin-friendly layout."
 readme = "README.md"
 requires-python = ">=3.12"
