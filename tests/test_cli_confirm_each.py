@@ -61,6 +61,7 @@ def test_confirm_each_declines_all_actions(tmp_path: Path, monkeypatch) -> None:
 		default_lang='en',
 		verbose=False,
 		confirm_each=True,
+		preset=None,
 		history=False,
 		undo=False,
 		undo_id=None,

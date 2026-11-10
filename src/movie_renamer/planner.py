@@ -6,7 +6,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from movie_renamer.models import FileCandidate, FolderScan, PlannedAction
-from movie_renamer.naming import folder_name, subtitle_name, video_name
+from movie_renamer.naming import DEFAULT_PRESET, folder_name, subtitle_name, video_name
 from movie_renamer.parser import MovieMetadata, extract_edition, parse_movie_name
 
 
@@ -71,6 +71,7 @@ def plan_actions(
 	default_lang: str = 'en',
 	ignore_globs: list[str] | None = None,
 	edition_phrases: list[str] | None = None,
+	preset: str = DEFAULT_PRESET,
 ) -> list[PlannedAction]:
 	ignore_globs = ignore_globs or []
 	edition_phrases = edition_phrases
@@ -162,6 +163,7 @@ def plan_actions(
 					ext=f.path.suffix,
 					forced=f.subtitle_forced,
 					sdh=f.subtitle_sdh,
+					preset=preset,
 				)
 				subtitle_candidates.append((f, target, explicit_lang))
 				continue
@@ -180,7 +182,7 @@ def plan_actions(
 				)
 				continue
 
-			target = folder_target / video_name(meta, ext=f.path.suffix.lstrip('.'))
+			target = folder_target / video_name(meta, ext=f.path.suffix.lstrip('.'), preset=preset)
 			if target.resolve() in used_targets:
 				actions.append(
 					PlannedAction(
