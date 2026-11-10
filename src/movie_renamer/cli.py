@@ -7,6 +7,7 @@ import typer
 from .cli_config import require_source_dir, require_target_dir, resolve_cli_config
 from .cli_history import handle_history_commands, should_handle_history_commands
 from .cli_plan import run_plan_and_apply
+from .naming import DEFAULT_PRESET
 
 app = typer.Typer(add_completion=False)
 
@@ -27,6 +28,11 @@ IGNORE_OPT = typer.Option([], '--ignore', help='Additional glob patterns to skip
 DEFAULT_LANG_OPT = typer.Option('en', '--default-lang', help='Subtitle language when not detected.')
 VERBOSE_OPT = typer.Option(False, '-v', '--verbose', help='Show parsing details per folder.')
 CONFIRM_EACH_OPT = typer.Option(False, '--confirm', help='When applying, prompt for each move before executing.')
+PRESET_OPT = typer.Option(
+	None,
+	'--preset',
+	help='Naming preset: plex (default), jellyfin, emby or kodi. Can also be set in config.json.',
+)
 HISTORY_OPT = typer.Option(False, '--history', help='List rename batch history for the target directory.')
 UNDO_OPT = typer.Option(
 	False,
@@ -49,6 +55,7 @@ def main(
 	default_lang: str = DEFAULT_LANG_OPT,
 	verbose: bool = VERBOSE_OPT,
 	confirm_each: bool = CONFIRM_EACH_OPT,
+	preset: str | None = PRESET_OPT,
 	history: bool = HISTORY_OPT,
 	undo: bool = UNDO_OPT,
 	undo_id: str | None = UNDO_ID_ARG,
@@ -59,7 +66,7 @@ def main(
 	- default is dry-run
 	- `--apply` executes filesystem changes
 	"""
-	resolved = resolve_cli_config(source_dir=source_dir, target_dir=target_dir, ignore=ignore)
+	resolved = resolve_cli_config(source_dir=source_dir, target_dir=target_dir, ignore=ignore, preset=preset)
 	target_dir = require_target_dir(resolved.target_dir)
 
 	if should_handle_history_commands(history, undo, undo_id):
@@ -83,6 +90,7 @@ def main(
 		default_lang=default_lang,
 		verbose=verbose,
 		confirm_each=confirm_each,
+		preset=resolved.preset or DEFAULT_PRESET,
 	)
 
 

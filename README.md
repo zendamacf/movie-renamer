@@ -75,10 +75,24 @@ If `config.json` exists in the **current working directory**, it is loaded autom
 | `source_dir` | Default when `--source-dir` is omitted |
 | `target_dir` | Default when `--target-dir` is omitted |
 | `ignore_globs` | Extra glob patterns to skip (same as repeatable `--ignore`) |
+| `preset` | Naming preset (same as `--preset`) |
 
 CLI flags override `config.json` when both are set.
 
 See [`example-config.json`](example-config.json) for a complete example (including `ignore_globs`).
+
+## Naming presets
+
+Use `--preset` to choose the naming format. The default is `plex`.
+
+| Preset | Edition in file name | Example |
+| --- | --- | --- |
+| `plex` | `{edition-X}` | `Troy (2004) {edition-Director's Cut}.mkv` |
+| `jellyfin` | ` - X` | `Troy (2004) - Director's Cut.mkv` |
+| `emby` | ` - X` | `Troy (2004) - Director's Cut.mkv` |
+| `kodi` | Not supported, so it is skipped | `Troy (2004).mkv` |
+
+All presets use the `Title (Year)/` folder. Kodi has no edition naming, so the edition is left out.
 
 ## History and undo
 

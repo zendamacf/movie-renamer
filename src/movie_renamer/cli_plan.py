@@ -6,6 +6,7 @@ import typer
 
 from . import executor
 from .models import FolderScan, PlannedAction
+from .naming import DEFAULT_PRESET
 from .planner import plan_actions
 from .scanner import scan_movie_folders
 from .terminal import label
@@ -34,6 +35,7 @@ def run_plan_and_apply(
 	default_lang: str,
 	verbose: bool,
 	confirm_each: bool,
+	preset: str = DEFAULT_PRESET,
 ) -> None:
 	folder_scans = scan_movie_folders(source_dir, recursive=recursive)
 	actions = plan_actions(
@@ -42,6 +44,7 @@ def run_plan_and_apply(
 		default_lang=default_lang,
 		ignore_globs=ignore_globs,
 		edition_phrases=edition_phrases,
+		preset=preset,
 	)
 
 	counts: dict[str, int] = {'move': 0, 'skip': 0}

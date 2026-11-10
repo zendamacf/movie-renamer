@@ -7,6 +7,7 @@ import pytest
 import typer
 
 from movie_renamer.cli import main
+from movie_renamer.cli_config import resolve_cli_config
 
 
 def test_config_can_supply_source_and_target_dirs(tmp_path: Path, monkeypatch) -> None:
@@ -38,6 +39,7 @@ def test_config_can_supply_source_and_target_dirs(tmp_path: Path, monkeypatch) -
 		default_lang='en',
 		verbose=False,
 		confirm_each=False,
+		preset=None,
 		history=False,
 		undo=False,
 		undo_id=None,
@@ -74,6 +76,7 @@ def test_cli_source_dir_overrides_config(tmp_path: Path, monkeypatch) -> None:
 		default_lang='en',
 		verbose=False,
 		confirm_each=False,
+		preset=None,
 		history=False,
 		undo=False,
 		undo_id=None,
@@ -110,6 +113,7 @@ def test_config_load_logs_message(tmp_path: Path, monkeypatch) -> None:
 		default_lang='en',
 		verbose=False,
 		confirm_each=False,
+		preset=None,
 		history=False,
 		undo=False,
 		undo_id=None,
@@ -137,7 +141,21 @@ def test_invalid_config_json_raises_bad_parameter(tmp_path: Path, monkeypatch) -
 			default_lang='en',
 			verbose=False,
 			confirm_each=False,
+			preset=None,
 			history=False,
 			undo=False,
 			undo_id=None,
 		)
+
+
+def test_preset_from_config_and_cli_override(tmp_path: Path) -> None:
+	cfg = tmp_path / 'config.json'
+	cfg.write_text('{"preset": "kodi"}', encoding='utf-8')
+	assert resolve_cli_config(source_dir=None, target_dir=None, ignore=[], config_path=cfg).preset == 'kodi'
+	resolved = resolve_cli_config(source_dir=None, target_dir=None, ignore=[], preset='Emby', config_path=cfg)
+	assert resolved.preset == 'emby'
+
+
+def test_unknown_preset_rejected(tmp_path: Path) -> None:
+	with pytest.raises(typer.BadParameter):
+		resolve_cli_config(source_dir=None, target_dir=None, ignore=[], preset='nope', config_path=tmp_path / 'x.json')

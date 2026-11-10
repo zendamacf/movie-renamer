@@ -35,3 +35,22 @@ def test_subtitle_name_preserves_extension() -> None:
 	meta = MovieMetadata(title='Ultraviolet', year=2006, edition=None)
 	assert subtitle_name(meta, ext='vtt') == 'Ultraviolet (2006).en.vtt'
 	assert subtitle_name(meta, ext='.vtt', lang='fr', forced=True) == 'Ultraviolet (2006).fr.forced.vtt'
+
+
+def test_jellyfin_and_emby_use_version_label() -> None:
+	meta = MovieMetadata(title='Troy', year=2004, edition="Director's Cut")
+	for preset in ('jellyfin', 'emby'):
+		assert video_name(meta, ext='mkv', preset=preset) == "Troy (2004) - Director's Cut.mkv"
+		assert subtitle_name(meta, preset=preset) == "Troy (2004) - Director's Cut.en.srt"
+
+
+def test_kodi_skips_edition() -> None:
+	meta = MovieMetadata(title='Troy', year=2004, edition="Director's Cut")
+	assert video_name(meta, ext='mkv', preset='kodi') == 'Troy (2004).mkv'
+	assert subtitle_name(meta, preset='kodi') == 'Troy (2004).en.srt'
+
+
+def test_presets_without_edition_match() -> None:
+	meta = MovieMetadata(title='Ultraviolet', year=2006, edition=None)
+	for preset in ('plex', 'jellyfin', 'emby', 'kodi'):
+		assert video_name(meta, ext='mp4', preset=preset) == 'Ultraviolet (2006).mp4'
