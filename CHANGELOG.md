@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 <!-- towncrier -->
+## 2.0.0 (2026-11-11)
+
+### Features
+
+- Titles and years now come from a TMDb lookup by default, which requires a TMDb API key; pass `--filename-only` to keep parsing release names without one. (#76)
+- Add `--json` to print the plan and summary as JSON on stdout, for use in scripts.
+- Add `--preset` (and `preset` in `config.json`) to choose the naming format: plex (default), jellyfin, emby or kodi.
+- Recognize more movie editions: Final Cut, IMAX, Ultimate, Special Edition, Collector's Edition and 3D.
+
+### Documentation
+
+- Add a link to episode-renamer in the README.
+- Make `config.json` the expected way to set up the tool; command-line options still work and override it.
+
+
 ## 1.0.1 (2026-11-07)
 
 ### Misc
