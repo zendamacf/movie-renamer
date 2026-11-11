@@ -163,3 +163,48 @@ def test_preset_from_config_and_cli_override(tmp_path: Path) -> None:
 def test_unknown_preset_rejected(tmp_path: Path) -> None:
 	with pytest.raises(typer.BadParameter):
 		resolve_cli_config(source_dir=None, target_dir=None, ignore=[], preset='nope', config_path=tmp_path / 'x.json')
+
+
+def test_missing_dirs_error_points_to_config(tmp_path: Path, monkeypatch) -> None:
+	monkeypatch.chdir(tmp_path)
+
+	with pytest.raises(typer.BadParameter, match='set `target_dir` in config.json'):
+		main(
+			source_dir=None,
+			target_dir=None,
+			apply=False,
+			recursive=False,
+			ignore=[],
+			default_lang='en',
+			verbose=False,
+			confirm_each=False,
+			preset=None,
+			filename_only=True,
+			history=False,
+			undo=False,
+			undo_id=None,
+		)
+
+
+def test_config_supplies_target_dir_for_history(tmp_path: Path, monkeypatch) -> None:
+	monkeypatch.chdir(tmp_path)
+
+	target_dir = tmp_path / 'target'
+	target_dir.mkdir()
+	(tmp_path / 'config.json').write_text(json.dumps({'target_dir': str(target_dir)}), encoding='utf-8')
+
+	main(
+		source_dir=None,
+		target_dir=None,
+		apply=False,
+		recursive=False,
+		ignore=[],
+		default_lang='en',
+		verbose=False,
+		confirm_each=False,
+		preset=None,
+		filename_only=True,
+		history=True,
+		undo=False,
+		undo_id=None,
+	)

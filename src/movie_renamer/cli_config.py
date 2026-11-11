@@ -88,7 +88,7 @@ def resolve_cli_config(
 
 def require_target_dir(target_dir: Path | None) -> Path:
 	if target_dir is None:
-		raise typer.BadParameter('Missing `target_dir` (provide --target-dir or set `target_dir` in config.json).')
+		raise typer.BadParameter('Missing `target_dir` (set `target_dir` in config.json, or pass --target-dir).')
 	if not target_dir.exists() or not target_dir.is_dir():
 		raise typer.BadParameter(f'`target_dir` must be an existing directory: {target_dir}')
 	return target_dir
@@ -96,7 +96,7 @@ def require_target_dir(target_dir: Path | None) -> Path:
 
 def require_source_dir(source_dir: Path | None) -> Path:
 	if source_dir is None:
-		raise typer.BadParameter('Missing `source_dir` (provide --source-dir or set `source_dir` in config.json).')
+		raise typer.BadParameter('Missing `source_dir` (set `source_dir` in config.json, or pass --source-dir).')
 	if not source_dir.exists() or not source_dir.is_dir():
 		raise typer.BadParameter(f'`source_dir` must be an existing directory: {source_dir}')
 	return source_dir

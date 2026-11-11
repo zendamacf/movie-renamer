@@ -15,12 +15,12 @@ app = typer.Typer(add_completion=False)
 SOURCE_DIR_OPT = typer.Option(
 	None,
 	'--source-dir',
-	help='Directory containing movie folders (optional when set in config.json).',
+	help='Directory containing movie folders. Overrides `source_dir` in config.json.',
 )
 TARGET_DIR_OPT = typer.Option(
 	None,
 	'--target-dir',
-	help='Root output directory to organise into (must exist; optional when set in config.json).',
+	help='Root output directory to organise into (must exist). Overrides `target_dir` in config.json.',
 )
 APPLY_OPT = typer.Option(False, '--apply', help='Execute filesystem changes.')
 RECURSIVE_OPT = typer.Option(False, '--recursive', help='Descend into subfolders like "Other/".')
@@ -31,7 +31,7 @@ CONFIRM_EACH_OPT = typer.Option(False, '--confirm', help='When applying, prompt 
 PRESET_OPT = typer.Option(
 	None,
 	'--preset',
-	help='Naming preset: plex (default), jellyfin, emby or kodi. Can also be set in config.json.',
+	help='Naming preset: plex (default), jellyfin, emby or kodi. Overrides `preset` in config.json.',
 )
 JSON_OPT = typer.Option(
 	False,
@@ -46,13 +46,13 @@ FILENAME_ONLY_OPT = typer.Option(
 ID_TAG_OPT = typer.Option(
 	False,
 	'--id-tag',
-	help='Add the TMDb id tag (e.g. {tmdb-123}) to folder and file names. Can also be set in config.json.',
+	help='Add the TMDb id tag (e.g. {tmdb-123}) to folder and file names. Also enabled by `id_tag` in config.json.',
 )
 TMDB_API_KEY_OPT = typer.Option(
 	None,
 	'--tmdb-api-key',
 	envvar='TMDB_API_KEY',
-	help='TMDb API key (v3). Can also be set via TMDB_API_KEY or `tmdb_api_key` in config.json.',
+	help='TMDb API key (v3). Overrides TMDB_API_KEY and `tmdb_api_key` in config.json.',
 )
 HISTORY_OPT = typer.Option(False, '--history', help='List rename batch history for the target directory.')
 UNDO_OPT = typer.Option(
@@ -88,6 +88,7 @@ def main(
 	"""
 	Plan movie folder renames into a Plex/Jellyfin-friendly `Title (Year)/` structure.
 
+	- settings are read from `config.json` in the current directory; options here override it
 	- default is dry-run
 	- titles, years and TMDb ids come from a TMDb lookup (`--filename-only` to parse release names only)
 	- `--apply` executes filesystem changes
