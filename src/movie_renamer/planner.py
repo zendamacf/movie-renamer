@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import fnmatch
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
+from dataclasses import replace
 from pathlib import Path
 
 from movie_renamer.models import FileCandidate, FolderScan, PlannedAction
 from movie_renamer.naming import DEFAULT_PRESET, folder_name, subtitle_name, video_name
 from movie_renamer.parser import MovieMetadata, extract_edition, parse_movie_name
+
+# Refines filename-parsed metadata (e.g. via TMDb). Receives the raw name and the parse (None if it failed).
+MetadataResolver = Callable[[str, MovieMetadata | None], MovieMetadata | None]
 
 
 def _matches_any_glob(path: Path, globs: Iterable[str]) -> bool:
@@ -33,9 +37,10 @@ def _is_in_subs_folder(path: Path) -> bool:
 	return path.parent.name.lower() == 'subs'
 
 
-def _subtitle_looks_release_named(subtitle_path: Path, meta: MovieMetadata) -> bool:
+def _subtitle_looks_release_named(subtitle_path: Path, *years: int) -> bool:
 	# Release-style sidecars usually include the movie year (e.g. `Troy.2004.en.srt`).
-	return str(meta.year) in subtitle_path.stem
+	# Pass every candidate year: a TMDb lookup may have corrected the year the release used.
+	return any(str(year) in subtitle_path.stem for year in years)
 
 
 def _subtitle_preference(candidate: FileCandidate, explicit_lang: bool) -> tuple:
@@ -72,6 +77,8 @@ def plan_actions(
 	ignore_globs: list[str] | None = None,
 	edition_phrases: list[str] | None = None,
 	preset: str = DEFAULT_PRESET,
+	resolver: MetadataResolver | None = None,
+	id_tag: bool = False,
 ) -> list[PlannedAction]:
 	ignore_globs = ignore_globs or []
 	edition_phrases = edition_phrases
@@ -82,13 +89,14 @@ def plan_actions(
 	for folder_scan in folder_scans:
 		primary = _pick_primary_video(folder_scan)
 		primary_path = primary[0] if primary else None
+		raw_name = primary_path.name if primary_path is not None else folder_scan.folder.name
 		try:
-			if primary_path is not None:
-				meta = parse_movie_name(primary_path.name, edition_phrases=edition_phrases)
-			else:
-				meta = parse_movie_name(folder_scan.folder.name, edition_phrases=edition_phrases)
+			meta = parse_movie_name(raw_name, edition_phrases=edition_phrases)
 		except ValueError:
 			meta = None
+		release_year = meta.year if meta is not None else None
+		if resolver is not None:
+			meta = resolver(raw_name, meta)
 		if meta is None:
 			actions.append(
 				PlannedAction(
@@ -99,7 +107,9 @@ def plan_actions(
 			)
 			continue
 
-		folder_target = target_dir / folder_name(meta)
+		# Names omit the TMDb id unless tagging is enabled; the id stays in the action metadata.
+		name_meta = meta if id_tag else replace(meta, tmdb_id=None)
+		folder_target = target_dir / folder_name(name_meta, preset)
 		# Collect subtitle candidates and pick a winner per target so first-seen
 		# forced tracks cannot steal the regular language filename.
 		subtitle_candidates: list[tuple[FileCandidate, Path, bool]] = []
@@ -135,7 +145,7 @@ def plan_actions(
 					subtitle_edition = extract_edition(f.path.name, edition_phrases=edition_phrases)
 					edition_mismatch = subtitle_edition is not None and subtitle_edition != meta.edition
 					missing_edition_on_release_named = subtitle_edition is None and _subtitle_looks_release_named(
-						f.path, meta
+						f.path, *(y for y in (meta.year, release_year) if y is not None)
 					)
 					if edition_mismatch or missing_edition_on_release_named:
 						actions.append(
@@ -158,7 +168,7 @@ def plan_actions(
 					lang = f.subtitle_lang or default_lang
 					explicit_lang = f.subtitle_lang is not None
 				target = folder_target / subtitle_name(
-					meta,
+					name_meta,
 					lang=lang,
 					ext=f.path.suffix,
 					forced=f.subtitle_forced,
@@ -182,7 +192,7 @@ def plan_actions(
 				)
 				continue
 
-			target = folder_target / video_name(meta, ext=f.path.suffix.lstrip('.'), preset=preset)
+			target = folder_target / video_name(name_meta, ext=f.path.suffix.lstrip('.'), preset=preset)
 			if target.resolve() in used_targets:
 				actions.append(
 					PlannedAction(

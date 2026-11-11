@@ -53,6 +53,7 @@ def test_apply_exits_nonzero_on_execution_errors(tmp_path: Path, monkeypatch) ->
 			verbose=False,
 			confirm_each=False,
 			preset=None,
+			filename_only=True,
 			history=False,
 			undo=False,
 			undo_id=None,

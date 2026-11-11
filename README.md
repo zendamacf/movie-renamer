@@ -28,20 +28,38 @@ library/
     └── Movie Title (2020).en.srt
 ```
 
-Typical workflow:
+Typical workflow (these examples use `--filename-only`; see [TMDb lookup](#tmdb-lookup-default) for the default behaviour):
 
 ```bash
 # 1. Plan (default: dry-run; no filesystem changes)
-movie-renamer --source-dir ./source --target-dir ./library
+movie-renamer --source-dir ./source --target-dir ./library --filename-only
 
 # 2. Apply when the plan looks right
-movie-renamer --source-dir ./source --target-dir ./library --apply
+movie-renamer --source-dir ./source --target-dir ./library --filename-only --apply
 
 # 3. Optional: confirm each move interactively
-movie-renamer --source-dir ./source --target-dir ./library --apply --confirm
+movie-renamer --source-dir ./source --target-dir ./library --filename-only --apply --confirm
 ```
 
 `--target-dir` must already exist. The tool **moves** files into the library (it does not copy them).
+
+## TMDb lookup (default)
+
+Titles, years and IDs come from [TMDb](https://www.themoviedb.org/) by default. For each movie the tool searches TMDb using the name parsed from the release, then:
+
+- corrects wrong titles and years, and finds the year when the release name has none;
+- optionally adds a TMDb ID tag so Plex, Jellyfin and Emby match the movie (off by default; enable with `--id-tag` or `"id_tag": true` in `config.json`): `Movie Title (2020) {tmdb-123}` (plex) or `Movie Title (2020) [tmdbid-123]` (jellyfin, emby). The kodi preset has no ID tag. Without the tag, titles and years are still corrected and the ID still appears in `--json` output;
+- asks you to choose when there is more than one plausible match (option `0` keeps the name parsed from the filename). With `--json` there is no prompt, so ambiguous movies keep the filename parse.
+
+An API key is required. Get a free v3 key from your TMDb account and provide it with `--tmdb-api-key`, the `TMDB_API_KEY` environment variable, or `tmdb_api_key` in `config.json`. If TMDb cannot be reached the run stops before anything is moved.
+
+To skip TMDb entirely (no API key, no network), pass `--filename-only` or set `"filename_only": true` in `config.json`. Titles and years are then parsed from the release name alone and no ID tag is added.
+
+```bash
+movie-renamer --source-dir ./source --target-dir ./library --filename-only
+```
+
+Editions such as `Director's Cut` always come from the file name.
 
 ## Dry-run output
 
@@ -64,7 +82,7 @@ Coloured `MOVE` / `SKIP` labels appear in a real terminal; the structure above i
 Pass `--json` to print the plan and summary as a single JSON document on stdout (the "Using settings from" notice goes to stderr). It works with dry-run and `--apply`, and cannot be combined with `--confirm`, `--history` or `--undo`.
 
 ```bash
-movie-renamer --source-dir ./source --target-dir ./library --json | jq '.summary'
+movie-renamer --source-dir ./source --target-dir ./library --filename-only --json | jq '.summary'
 ```
 
 Example output (dry-run):
@@ -80,13 +98,13 @@ Example output (dry-run):
       "action": "move",
       "source": "/path/to/source/Movie.Title.2020.1080p.BluRay.x265-RARBG/Movie.Title.2020.1080p.BluRay.x265-RARBG.mkv",
       "target": "Movie Title (2020)/Movie Title (2020).mkv",
-      "metadata": { "title": "Movie Title", "year": 2020, "edition": null }
+      "metadata": { "title": "Movie Title", "year": 2020, "edition": null, "tmdb_id": null }
     },
     {
       "action": "move",
       "source": "/path/to/source/Movie.Title.2020.1080p.BluRay.x265-RARBG/Movie.Title.2020.en.srt",
       "target": "Movie Title (2020)/Movie Title (2020).en.srt",
-      "metadata": { "title": "Movie Title", "year": 2020, "edition": null }
+      "metadata": { "title": "Movie Title", "year": 2020, "edition": null, "tmdb_id": null }
     }
   ],
   "skipped": [
@@ -128,6 +146,9 @@ If `config.json` exists in the **current working directory**, it is loaded autom
 | `target_dir` | Default when `--target-dir` is omitted |
 | `ignore_globs` | Extra glob patterns to skip (same as repeatable `--ignore`) |
 | `preset` | Naming preset (same as `--preset`) |
+| `tmdb_api_key` | TMDb API key (same as `--tmdb-api-key`) |
+| `id_tag` | `true` to add the TMDb ID tag to names (same as `--id-tag`) |
+| `filename_only` | `true` to skip the TMDb lookup (same as `--filename-only`) |
 
 CLI flags override `config.json` when both are set.
 

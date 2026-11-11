@@ -95,6 +95,7 @@ class MovieMetadata:
 	title: str
 	year: int
 	edition: str | None
+	tmdb_id: int | None = None
 
 
 def _normalize_word_for_title(word: str) -> str:

@@ -18,6 +18,9 @@ class ResolvedCliConfig:
 	ignore_globs: list[str]
 	edition_phrases: list[str] | None
 	preset: str | None = None
+	filename_only: bool = False
+	id_tag: bool = False
+	tmdb_api_key: str | None = None
 
 
 def resolve_cli_config(
@@ -27,6 +30,9 @@ def resolve_cli_config(
 	ignore: list[str],
 	preset: str | None = None,
 	json_output: bool = False,
+	filename_only: bool = False,
+	id_tag: bool = False,
+	tmdb_api_key: str | None = None,
 	config_path: Path = DEFAULT_CONFIG_PATH,
 ) -> ResolvedCliConfig:
 	ignore_globs: list[str] = list(ignore)
@@ -53,6 +59,13 @@ def resolve_cli_config(
 		config_preset = data.get('preset')
 		if preset is None and isinstance(config_preset, str):
 			preset = config_preset
+		if data.get('filename_only') is True:
+			filename_only = True
+		if data.get('id_tag') is True:
+			id_tag = True
+		config_key = data.get('tmdb_api_key')
+		if not tmdb_api_key and isinstance(config_key, str) and config_key.strip():
+			tmdb_api_key = config_key.strip()
 		if isinstance(data.get('ignore_globs'), list):
 			ignore_globs.extend(str(g) for g in data['ignore_globs'])
 
@@ -67,6 +80,9 @@ def resolve_cli_config(
 		ignore_globs=ignore_globs,
 		edition_phrases=edition_phrases,
 		preset=preset,
+		filename_only=filename_only,
+		id_tag=id_tag,
+		tmdb_api_key=tmdb_api_key or None,
 	)
 
 
