@@ -38,6 +38,22 @@ JSON_OPT = typer.Option(
 	'--json',
 	help='Print the plan and summary as JSON on stdout (not usable with --confirm, --history or --undo).',
 )
+FILENAME_ONLY_OPT = typer.Option(
+	False,
+	'--filename-only',
+	help='Skip the TMDb lookup and use only what can be parsed from release names (no API key needed).',
+)
+ID_TAG_OPT = typer.Option(
+	False,
+	'--id-tag',
+	help='Add the TMDb id tag (e.g. {tmdb-123}) to folder and file names. Can also be set in config.json.',
+)
+TMDB_API_KEY_OPT = typer.Option(
+	None,
+	'--tmdb-api-key',
+	envvar='TMDB_API_KEY',
+	help='TMDb API key (v3). Can also be set via TMDB_API_KEY or `tmdb_api_key` in config.json.',
+)
 HISTORY_OPT = typer.Option(False, '--history', help='List rename batch history for the target directory.')
 UNDO_OPT = typer.Option(
 	False,
@@ -62,6 +78,9 @@ def main(
 	confirm_each: bool = CONFIRM_EACH_OPT,
 	preset: str | None = PRESET_OPT,
 	json_output: bool = JSON_OPT,
+	filename_only: bool = FILENAME_ONLY_OPT,
+	tmdb_api_key: str | None = TMDB_API_KEY_OPT,
+	id_tag: bool = ID_TAG_OPT,
 	history: bool = HISTORY_OPT,
 	undo: bool = UNDO_OPT,
 	undo_id: str | None = UNDO_ID_ARG,
@@ -70,6 +89,7 @@ def main(
 	Plan movie folder renames into a Plex/Jellyfin-friendly `Title (Year)/` structure.
 
 	- default is dry-run
+	- titles, years and TMDb ids come from a TMDb lookup (`--filename-only` to parse release names only)
 	- `--apply` executes filesystem changes
 	"""
 	if json_output is True and (confirm_each or history or undo or undo_id is not None):
@@ -81,6 +101,9 @@ def main(
 		ignore=ignore,
 		preset=preset,
 		json_output=json_output is True,
+		filename_only=filename_only is True,
+		id_tag=id_tag is True,
+		tmdb_api_key=tmdb_api_key if isinstance(tmdb_api_key, str) else None,
 	)
 	target_dir = require_target_dir(resolved.target_dir)
 
@@ -106,6 +129,9 @@ def main(
 		verbose=verbose,
 		confirm_each=confirm_each,
 		preset=resolved.preset or DEFAULT_PRESET,
+		tmdb_api_key=None if resolved.filename_only else resolved.tmdb_api_key,
+		filename_only=resolved.filename_only,
+		id_tag=resolved.id_tag,
 		json_output=json_output is True,
 	)
 

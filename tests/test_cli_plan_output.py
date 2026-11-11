@@ -35,6 +35,7 @@ def test_planned_operations_print_target_dir_once(tmp_path: Path, monkeypatch) -
 		verbose=False,
 		confirm_each=False,
 		preset=None,
+		filename_only=True,
 		history=False,
 		undo=False,
 		undo_id=None,
@@ -83,6 +84,7 @@ def test_planned_operations_skip_logs_all_nested_files(tmp_path: Path, monkeypat
 		verbose=False,
 		confirm_each=False,
 		preset=None,
+		filename_only=True,
 		history=False,
 		undo=False,
 		undo_id=None,
@@ -128,7 +130,8 @@ def test_json_dry_run_outputs_only_json(tmp_path: Path, monkeypatch) -> None:
 	source_dir, target_dir = _make_movie(tmp_path)
 	(tmp_path / 'config.json').write_text('{}', encoding='utf-8')
 
-	result = CliRunner().invoke(app, ['--source-dir', str(source_dir), '--target-dir', str(target_dir), '--json'])
+	args = ['--source-dir', str(source_dir), '--target-dir', str(target_dir), '--json', '--filename-only']
+	result = CliRunner().invoke(app, args)
 
 	assert result.exit_code == 0
 	payload = json.loads(result.stdout)
@@ -137,7 +140,7 @@ def test_json_dry_run_outputs_only_json(tmp_path: Path, monkeypatch) -> None:
 	assert payload['summary']['move'] == 2
 	targets = {a['target'] for a in payload['actions']}
 	assert targets == {'Movie Title (2020)/Movie Title (2020).mkv', 'Movie Title (2020)/Movie Title (2020).en.srt'}
-	assert payload['actions'][0]['metadata'] == {'title': 'Movie Title', 'year': 2020, 'edition': None}
+	assert payload['actions'][0]['metadata'] == {'title': 'Movie Title', 'year': 2020, 'edition': None, 'tmdb_id': None}
 	assert [s['kind'] for s in payload['skipped']] == ['other']
 	assert 'executed' not in payload
 	assert (source_dir / 'Movie.Title.2020.1080p.BluRay.x265-RARBG').exists()
@@ -155,9 +158,9 @@ def test_json_apply_reports_execution_and_batch(tmp_path: Path, monkeypatch) -> 
 	monkeypatch.setenv('XDG_DATA_HOME', str(tmp_path / 'data'))
 	source_dir, target_dir = _make_movie(tmp_path)
 
-	result = CliRunner().invoke(
-		app, ['--source-dir', str(source_dir), '--target-dir', str(target_dir), '--json', '--apply', '-v']
-	)
+	args = ['--source-dir', str(source_dir), '--target-dir', str(target_dir)]
+	args += ['--json', '--filename-only', '--apply', '-v']
+	result = CliRunner().invoke(app, args)
 
 	assert result.exit_code == 0, result.output
 	payload = json.loads(result.stdout)

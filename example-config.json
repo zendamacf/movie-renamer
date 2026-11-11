@@ -1,6 +1,7 @@
 {
   "source_dir": "./examples/source",
   "target_dir": "./examples/output",
+  "tmdb_api_key": "your-tmdb-v3-api-key",
   "ignore_globs": ["**/samples/**", "**/*.nfo"]
 }
 

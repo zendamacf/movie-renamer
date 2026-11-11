@@ -10,9 +10,11 @@ from . import executor
 from .history import BatchRecord
 from .models import FolderScan, PlannedAction
 from .naming import DEFAULT_PRESET
-from .planner import plan_actions
+from .parser import MovieMetadata
+from .planner import MetadataResolver, plan_actions
 from .scanner import scan_movie_folders
 from .terminal import label
+from .tmdb import TmdbClient, TmdbError, TmdbMatch, resolve_metadata
 
 VIDEO_EXT_HINT = 'Videos: mkv/mp4/avi/etc. Subtitles: .srt'
 SILENT_SKIP_EXTS = {'.txt', '.jpg', '.exe'}
@@ -25,6 +27,37 @@ def _display_target(target: Path | None, target_dir: Path) -> str:
 		return str(target.relative_to(target_dir))
 	except ValueError:
 		return str(target)
+
+
+def _choose_match(query: str, candidates: list[TmdbMatch]) -> TmdbMatch | None:
+	typer.echo(f'Multiple TMDb matches for {query!r}:')
+	for i, c in enumerate(candidates, start=1):
+		typer.echo(f'  {i}. {c.title} ({c.year}) [tmdb-{c.id}]')
+	typer.echo('  0. None of these (use the name parsed from the filename)')
+	while True:
+		choice = typer.prompt('Choose a match', type=int, default=1)
+		if 0 <= choice <= len(candidates):
+			return candidates[choice - 1] if choice else None
+		typer.echo(f'Enter a number between 0 and {len(candidates)}.')
+
+
+def _build_resolver(
+	api_key: str | None, *, filename_only: bool, edition_phrases: list[str] | None, interactive: bool
+) -> MetadataResolver | None:
+	if filename_only:
+		return None
+	if not api_key:
+		raise typer.BadParameter(
+			'A TMDb API key is required for lookups. Provide --tmdb-api-key, set TMDB_API_KEY or `tmdb_api_key` '
+			'in config.json, or pass --filename-only to use release-name parsing only.'
+		)
+	client = TmdbClient(api_key)
+	chooser = _choose_match if interactive else None
+
+	def resolve(raw: str, parsed: MovieMetadata | None) -> MovieMetadata | None:
+		return resolve_metadata(client, raw, parsed, chooser=chooser, edition_phrases=edition_phrases)
+
+	return resolve
 
 
 def run_plan_and_apply(
@@ -40,16 +73,28 @@ def run_plan_and_apply(
 	confirm_each: bool,
 	preset: str = DEFAULT_PRESET,
 	json_output: bool = False,
+	tmdb_api_key: str | None = None,
+	filename_only: bool = False,
+	id_tag: bool = False,
 ) -> None:
-	folder_scans = scan_movie_folders(source_dir, recursive=recursive)
-	actions = plan_actions(
-		folder_scans=folder_scans,
-		target_dir=target_dir,
-		default_lang=default_lang,
-		ignore_globs=ignore_globs,
-		edition_phrases=edition_phrases,
-		preset=preset,
+	resolver = _build_resolver(
+		tmdb_api_key, filename_only=filename_only, edition_phrases=edition_phrases, interactive=not json_output
 	)
+	folder_scans = scan_movie_folders(source_dir, recursive=recursive)
+	try:
+		actions = plan_actions(
+			folder_scans=folder_scans,
+			target_dir=target_dir,
+			default_lang=default_lang,
+			ignore_globs=ignore_globs,
+			edition_phrases=edition_phrases,
+			preset=preset,
+			resolver=resolver,
+			id_tag=id_tag,
+		)
+	except TmdbError as e:
+		typer.echo(f'Error: {e}', err=True)
+		raise typer.Exit(code=1) from e
 
 	counts: dict[str, int] = {'move': 0, 'skip': 0}
 	for a in actions:
@@ -81,7 +126,8 @@ def run_plan_and_apply(
 		dest = _display_target(a.target, target_dir)
 		typer.echo(f'- {action_label} {src_name} -> {dest}')
 		if verbose and a.metadata is not None:
-			typer.echo(f'  metadata: title={a.metadata.title!r} year={a.metadata.year} edition={a.metadata.edition!r}')
+			m = a.metadata
+			typer.echo(f'  metadata: title={m.title!r} year={m.year} edition={m.edition!r} tmdb_id={m.tmdb_id}')
 
 	typer.echo('')
 
@@ -172,7 +218,12 @@ def _run_json(
 				'source': str(a.source) if a.source else None,
 				'target': _display_target(a.target, target_dir) or None,
 				'metadata': (
-					{'title': a.metadata.title, 'year': a.metadata.year, 'edition': a.metadata.edition}
+					{
+						'title': a.metadata.title,
+						'year': a.metadata.year,
+						'edition': a.metadata.edition,
+						'tmdb_id': a.metadata.tmdb_id,
+					}
 					if a.metadata is not None
 					else None
 				),
