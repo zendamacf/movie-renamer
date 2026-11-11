@@ -57,6 +57,42 @@ from movie_renamer.parser import MovieMetadata, parse_movie_name
 			2026,
 			None,
 		),
+		(
+			'Blade.Runner.1982.Final.Cut.1080p.BluRay.x265-RARBG',
+			'Blade Runner',
+			1982,
+			'Final Cut',
+		),
+		(
+			'Interstellar.2014.IMAX.1080p.BluRay.x265-RARBG',
+			'Interstellar',
+			2014,
+			'IMAX',
+		),
+		(
+			'Gladiator.2000.Ultimate.1080p.BluRay.x265-RARBG',
+			'Gladiator',
+			2000,
+			'Ultimate',
+		),
+		(
+			'Aliens.1986.Special.Edition.1080p.BluRay.x265-RARBG',
+			'Aliens',
+			1986,
+			'Special Edition',
+		),
+		(
+			"Terminator.2.1991.Collector's.Edition.1080p.BluRay.x265-RARBG",
+			'Terminator 2',
+			1991,
+			"Collector's Edition",
+		),
+		(
+			'Avatar.2009.3D.1080p.BluRay.x265-RARBG',
+			'Avatar',
+			2009,
+			'3D',
+		),
 	],
 )
 def test_parse_movie_name(raw: str, title: str, year: int, edition: str | None) -> None:

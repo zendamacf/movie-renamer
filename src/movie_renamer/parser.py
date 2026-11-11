@@ -8,11 +8,17 @@ _YEAR_RE = re.compile(r'\b(19|20)\d{2}\b')
 # These are known edition phrases we want to preserve (incl. punctuation).
 # Order matters: longer phrases should come first.
 _EDITION_PHRASES = [
+	"Collector's Edition",
+	'Special Edition',
 	"Director's Cut",
+	'Final Cut',
 	'Extended',
 	'Unrated',
 	'Theatrical',
 	'Remastered',
+	'Ultimate',
+	'IMAX',
+	'3D',
 ]
 
 # Short scene-name tokens that map onto a canonical edition phrase.
