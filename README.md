@@ -28,35 +28,47 @@ library/
     └── Movie Title (2020).en.srt
 ```
 
-Typical workflow (these examples use `--filename-only`; see [TMDb lookup](#tmdb-lookup-default) for the default behaviour):
+Settings live in a [`config.json`](#config) in the directory you run the command from. Typical `config.json` (see [TMDb lookup](#tmdb-lookup-default) for the API key):
+
+```json
+{
+  "source_dir": "./source",
+  "target_dir": "./library",
+  "tmdb_api_key": "your-tmdb-v3-api-key"
+}
+```
+
+Typical workflow:
 
 ```bash
 # 1. Plan (default: dry-run; no filesystem changes)
-movie-renamer --source-dir ./source --target-dir ./library --filename-only
+movie-renamer
 
 # 2. Apply when the plan looks right
-movie-renamer --source-dir ./source --target-dir ./library --filename-only --apply
+movie-renamer --apply
 
 # 3. Optional: confirm each move interactively
-movie-renamer --source-dir ./source --target-dir ./library --filename-only --apply --confirm
+movie-renamer --apply --confirm
 ```
 
-`--target-dir` must already exist. The tool **moves** files into the library (it does not copy them).
+Command-line options are still supported and override `config.json` for a single run, for example `movie-renamer --source-dir ./other`.
+
+`target_dir` must already exist. The tool **moves** files into the library (it does not copy them).
 
 ## TMDb lookup (default)
 
 Titles, years and IDs come from [TMDb](https://www.themoviedb.org/) by default. For each movie the tool searches TMDb using the name parsed from the release, then:
 
 - corrects wrong titles and years, and finds the year when the release name has none;
-- optionally adds a TMDb ID tag so Plex, Jellyfin and Emby match the movie (off by default; enable with `--id-tag` or `"id_tag": true` in `config.json`): `Movie Title (2020) {tmdb-123}` (plex) or `Movie Title (2020) [tmdbid-123]` (jellyfin, emby). The kodi preset has no ID tag. Without the tag, titles and years are still corrected and the ID still appears in `--json` output;
+- optionally adds a TMDb ID tag so Plex, Jellyfin and Emby match the movie (off by default; enable with `"id_tag": true` in `config.json` or `--id-tag`): `Movie Title (2020) {tmdb-123}` (plex) or `Movie Title (2020) [tmdbid-123]` (jellyfin, emby). The kodi preset has no ID tag. Without the tag, titles and years are still corrected and the ID still appears in `--json` output;
 - asks you to choose when there is more than one plausible match (option `0` keeps the name parsed from the filename). With `--json` there is no prompt, so ambiguous movies keep the filename parse.
 
-An API key is required. Get a free v3 key from your TMDb account and provide it with `--tmdb-api-key`, the `TMDB_API_KEY` environment variable, or `tmdb_api_key` in `config.json`. If TMDb cannot be reached the run stops before anything is moved.
+An API key is required. Get a free v3 key from your TMDb account and set `tmdb_api_key` in `config.json` (or use the `TMDB_API_KEY` environment variable or `--tmdb-api-key`). If TMDb cannot be reached the run stops before anything is moved.
 
-To skip TMDb entirely (no API key, no network), pass `--filename-only` or set `"filename_only": true` in `config.json`. Titles and years are then parsed from the release name alone and no ID tag is added.
+To skip TMDb entirely (no API key, no network), set `"filename_only": true` in `config.json` (or pass `--filename-only`). Titles and years are then parsed from the release name alone and no ID tag is added.
 
 ```bash
-movie-renamer --source-dir ./source --target-dir ./library --filename-only
+movie-renamer --filename-only
 ```
 
 Editions such as `Director's Cut` always come from the file name.
@@ -82,7 +94,7 @@ Coloured `MOVE` / `SKIP` labels appear in a real terminal; the structure above i
 Pass `--json` to print the plan and summary as a single JSON document on stdout (the "Using settings from" notice goes to stderr). It works with dry-run and `--apply`, and cannot be combined with `--confirm`, `--history` or `--undo`.
 
 ```bash
-movie-renamer --source-dir ./source --target-dir ./library --filename-only --json | jq '.summary'
+movie-renamer --json | jq '.summary'
 ```
 
 Example output (dry-run):
@@ -136,21 +148,21 @@ Example output (dry-run):
 
 For full flag lists and edge cases, use `movie-renamer --help`.
 
-## Config (optional)
+## Config
 
-If `config.json` exists in the **current working directory**, it is loaded automatically and the CLI prints a short notice. Supported keys:
+`config.json` is the expected way to set the tool up. It is loaded automatically from the **current working directory** and the CLI prints a short notice. If `source_dir` or `target_dir` is set in neither `config.json` nor on the command line, the run stops with an error. Supported keys:
 
 | Key | Purpose |
 | --- | --- |
-| `source_dir` | Default when `--source-dir` is omitted |
-| `target_dir` | Default when `--target-dir` is omitted |
+| `source_dir` | Directory containing movie folders (`--source-dir` overrides) |
+| `target_dir` | Library root to organise into (`--target-dir` overrides) |
 | `ignore_globs` | Extra glob patterns to skip (same as repeatable `--ignore`) |
 | `preset` | Naming preset (same as `--preset`) |
 | `tmdb_api_key` | TMDb API key (same as `--tmdb-api-key`) |
 | `id_tag` | `true` to add the TMDb ID tag to names (same as `--id-tag`) |
 | `filename_only` | `true` to skip the TMDb lookup (same as `--filename-only`) |
 
-CLI flags override `config.json` when both are set.
+Command-line options are an additional way to set the same values and override `config.json` when both are set (`--ignore` patterns are added to `ignore_globs`). `--history` and `--undo` use `target_dir` from `config.json` too.
 
 See [`example-config.json`](example-config.json) for a complete example (including `ignore_globs`).
 
@@ -178,19 +190,19 @@ After a successful or partial `--apply` run, the tool records a **batch** in `./
 List batches:
 
 ```bash
-movie-renamer --target-dir ./library --history
+movie-renamer --history
 ```
 
 Undo the most recent undoable batch:
 
 ```bash
-movie-renamer --target-dir ./library --undo
+movie-renamer --undo
 ```
 
 Undo a specific batch by id:
 
 ```bash
-movie-renamer --target-dir ./library --undo <batch-id>
+movie-renamer --undo <batch-id>
 ```
 
 Undo moves files back from the library to their original source paths and restores archived files when possible. **Partial** batches (some moves failed) only record successful operations; undo reverts those and warns that the batch was incomplete.
