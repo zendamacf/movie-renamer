@@ -59,6 +59,56 @@ Summary (dry-run): MOVE=2 SKIP=0 (Videos: mkv/mp4/avi/etc. Subtitles: .srt)
 
 Coloured `MOVE` / `SKIP` labels appear in a real terminal; the structure above is what you should expect.
 
+## JSON output
+
+Pass `--json` to print the plan and summary as a single JSON document on stdout (the "Using settings from" notice goes to stderr). It works with dry-run and `--apply`, and cannot be combined with `--confirm`, `--history` or `--undo`.
+
+```bash
+movie-renamer --source-dir ./source --target-dir ./library --json | jq '.summary'
+```
+
+Example output (dry-run):
+
+```json
+{
+  "mode": "dry-run",
+  "source_dir": "/path/to/source",
+  "target_dir": "/path/to/library",
+  "preset": "plex",
+  "actions": [
+    {
+      "action": "move",
+      "source": "/path/to/source/Movie.Title.2020.1080p.BluRay.x265-RARBG/Movie.Title.2020.1080p.BluRay.x265-RARBG.mkv",
+      "target": "Movie Title (2020)/Movie Title (2020).mkv",
+      "metadata": { "title": "Movie Title", "year": 2020, "edition": null }
+    },
+    {
+      "action": "move",
+      "source": "/path/to/source/Movie.Title.2020.1080p.BluRay.x265-RARBG/Movie.Title.2020.en.srt",
+      "target": "Movie Title (2020)/Movie Title (2020).en.srt",
+      "metadata": { "title": "Movie Title", "year": 2020, "edition": null }
+    }
+  ],
+  "skipped": [
+    { "path": "Movie.Title.2020.1080p.BluRay.x265-RARBG/Extras/readme.nfo", "kind": "other" }
+  ],
+  "summary": { "move": 2, "skip": 0, "misc": 0 }
+}
+```
+
+- `target` is relative to `target_dir`. `skipped[].kind` is `subtitle` or `other`.
+- With `--apply`, `mode` is `apply` and two keys are added:
+
+  ```json
+  {
+    "executed": { "move": 2, "skip": 0, "errors": 0 },
+    "batch": { "id": "<batch-id>", "status": "completed", "operations": 2 }
+  }
+  ```
+
+  `batch` is `null` when nothing was moved, and `status` is `partial` if some moves failed.
+- The exit code is 1 if any move errored.
+
 ## Safety
 
 - **Dry-run by default** — nothing is moved until you pass `--apply`.

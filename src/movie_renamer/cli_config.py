@@ -26,13 +26,18 @@ def resolve_cli_config(
 	target_dir: Path | None,
 	ignore: list[str],
 	preset: str | None = None,
+	json_output: bool = False,
 	config_path: Path = DEFAULT_CONFIG_PATH,
 ) -> ResolvedCliConfig:
 	ignore_globs: list[str] = list(ignore)
 	edition_phrases: list[str] | None = None
 
 	if config_path.exists():
-		typer.echo(f'Using settings from {config_path}')
+		notice = f'Using settings from {config_path}'
+		if json_output:
+			typer.echo(notice, err=True)  # keep stdout as pure JSON
+		else:
+			typer.echo(notice)
 		try:
 			data = json.loads(config_path.read_text(encoding='utf-8'))
 		except json.JSONDecodeError as e:
