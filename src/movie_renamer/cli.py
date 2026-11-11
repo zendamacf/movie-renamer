@@ -33,6 +33,11 @@ PRESET_OPT = typer.Option(
 	'--preset',
 	help='Naming preset: plex (default), jellyfin, emby or kodi. Can also be set in config.json.',
 )
+JSON_OPT = typer.Option(
+	False,
+	'--json',
+	help='Print the plan and summary as JSON on stdout (not usable with --confirm, --history or --undo).',
+)
 HISTORY_OPT = typer.Option(False, '--history', help='List rename batch history for the target directory.')
 UNDO_OPT = typer.Option(
 	False,
@@ -56,6 +61,7 @@ def main(
 	verbose: bool = VERBOSE_OPT,
 	confirm_each: bool = CONFIRM_EACH_OPT,
 	preset: str | None = PRESET_OPT,
+	json_output: bool = JSON_OPT,
 	history: bool = HISTORY_OPT,
 	undo: bool = UNDO_OPT,
 	undo_id: str | None = UNDO_ID_ARG,
@@ -66,7 +72,16 @@ def main(
 	- default is dry-run
 	- `--apply` executes filesystem changes
 	"""
-	resolved = resolve_cli_config(source_dir=source_dir, target_dir=target_dir, ignore=ignore, preset=preset)
+	if json_output is True and (confirm_each or history or undo or undo_id is not None):
+		raise typer.BadParameter('--json cannot be combined with --confirm, --history or --undo.')
+
+	resolved = resolve_cli_config(
+		source_dir=source_dir,
+		target_dir=target_dir,
+		ignore=ignore,
+		preset=preset,
+		json_output=json_output is True,
+	)
 	target_dir = require_target_dir(resolved.target_dir)
 
 	if should_handle_history_commands(history, undo, undo_id):
@@ -91,6 +106,7 @@ def main(
 		verbose=verbose,
 		confirm_each=confirm_each,
 		preset=resolved.preset or DEFAULT_PRESET,
+		json_output=json_output is True,
 	)
 
 
