@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 <!-- towncrier -->
+## 3.0.0 (2026-11-12)
+
+### Features
+
+- Running `movie-renamer` now shows the plan and asks `Apply these changes? [y/N]` before moving anything; `--apply` is replaced by `--dryrun` (preview only), and `--json` and `--confirm` are removed.
+- The TMDb lookup now reports progress (`[3/12] Looking up on TMDb: ...`) instead of appearing to hang.
+
+
 ## 2.0.0 (2026-11-11)
 
 ### Features
