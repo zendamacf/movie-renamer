@@ -260,3 +260,32 @@ def test_release_named_subtitle_still_detected_after_year_correction(tmp_path: P
 	by_source = {a.source: a.action for a in actions}
 	assert by_source[video] == 'move'
 	assert by_source[sub] == 'skip'
+
+
+def test_lookup_reports_progress_on_stderr(tmp_path: Path, monkeypatch) -> None:
+	monkeypatch.chdir(tmp_path)
+	src, dst = _movie(tmp_path)
+	other = src / 'Dune.2021.1080p'
+	other.mkdir()
+	(other / 'Dune.2021.1080p.mkv').write_bytes(b'v')
+	monkeypatch.setattr('movie_renamer.cli_plan.TmdbClient', lambda key: _client([_result(652, 'Troy', '2004-05-14')]))
+
+	args = ['--source-dir', str(src), '--target-dir', str(dst), '--tmdb-api-key', 'k', '--dryrun']
+	result = CliRunner().invoke(app, args)
+
+	assert result.exit_code == 0, result.output
+	assert 'Found 2 movie folders. Looking up titles on TMDb...' in result.stderr
+	assert '[1/2] Looking up on TMDb:' in result.stderr
+	assert '[2/2] Looking up on TMDb:' in result.stderr
+	assert 'Looking up' not in result.stdout
+
+
+def test_filename_only_prints_no_lookup_progress(tmp_path: Path, monkeypatch) -> None:
+	monkeypatch.chdir(tmp_path)
+	src, dst = _movie(tmp_path)
+
+	args = ['--source-dir', str(src), '--target-dir', str(dst), '--filename-only', '--dryrun']
+	result = CliRunner().invoke(app, args)
+
+	assert result.exit_code == 0, result.output
+	assert 'TMDb' not in result.stderr
