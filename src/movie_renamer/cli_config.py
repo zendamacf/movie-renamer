@@ -29,7 +29,6 @@ def resolve_cli_config(
 	target_dir: Path | None,
 	ignore: list[str],
 	preset: str | None = None,
-	json_output: bool = False,
 	filename_only: bool = False,
 	id_tag: bool = False,
 	tmdb_api_key: str | None = None,
@@ -39,11 +38,7 @@ def resolve_cli_config(
 	edition_phrases: list[str] | None = None
 
 	if config_path.exists():
-		notice = f'Using settings from {config_path}'
-		if json_output:
-			typer.echo(notice, err=True)  # keep stdout as pure JSON
-		else:
-			typer.echo(notice)
+		typer.echo(f'Using settings from {config_path}')
 		try:
 			data = json.loads(config_path.read_text(encoding='utf-8'))
 		except json.JSONDecodeError as e:

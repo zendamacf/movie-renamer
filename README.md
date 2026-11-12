@@ -19,7 +19,7 @@ source/
     └── Movie.Title.2020.en.srt
 ```
 
-**After** (`library/` — paths created when you run with `--apply`):
+**After** (`library/` — paths created when you run and confirm the plan):
 
 ```text
 library/
@@ -41,14 +41,12 @@ Settings live in a [`config.json`](#config) in the directory you run the command
 Typical workflow:
 
 ```bash
-# 1. Plan (default: dry-run; no filesystem changes)
+# 1. Optional: preview only (no prompt, no filesystem changes)
+movie-renamer --dryrun
+
+# 2. Show the plan, then answer y at the prompt to apply it (default is N)
 movie-renamer
 
-# 2. Apply when the plan looks right
-movie-renamer --apply
-
-# 3. Optional: confirm each move interactively
-movie-renamer --apply --confirm
 ```
 
 Command-line options are still supported and override `config.json` for a single run, for example `movie-renamer --source-dir ./other`.
@@ -60,8 +58,8 @@ Command-line options are still supported and override `config.json` for a single
 Titles, years and IDs come from [TMDb](https://www.themoviedb.org/) by default. For each movie the tool searches TMDb using the name parsed from the release, then:
 
 - corrects wrong titles and years, and finds the year when the release name has none;
-- optionally adds a TMDb ID tag so Plex, Jellyfin and Emby match the movie (off by default; enable with `"id_tag": true` in `config.json` or `--id-tag`): `Movie Title (2020) {tmdb-123}` (plex) or `Movie Title (2020) [tmdbid-123]` (jellyfin, emby). The kodi preset has no ID tag. Without the tag, titles and years are still corrected and the ID still appears in `--json` output;
-- asks you to choose when there is more than one plausible match (option `0` keeps the name parsed from the filename). With `--json` there is no prompt, so ambiguous movies keep the filename parse.
+- optionally adds a TMDb ID tag so Plex, Jellyfin and Emby match the movie (off by default; enable with `"id_tag": true` in `config.json` or `--id-tag`): `Movie Title (2020) {tmdb-123}` (plex) or `Movie Title (2020) [tmdbid-123]` (jellyfin, emby). The kodi preset has no ID tag. Without the tag, titles and years are still corrected;
+- asks you to choose when there is more than one plausible match (option `0` keeps the name parsed from the filename).
 
 An API key is required. Get a free v3 key from your TMDb account and set `tmdb_api_key` in `config.json` (or use the `TMDB_API_KEY` environment variable or `--tmdb-api-key`). If TMDb cannot be reached the run stops before anything is moved.
 
@@ -73,9 +71,9 @@ movie-renamer --filename-only
 
 Editions such as `Director's Cut` always come from the file name.
 
-## Dry-run output
+## Plan output
 
-Without `--apply`, the CLI prints planned moves, then expanded skip lines for other files under each movie folder (subtitles that were not moved, nested paths when `--recursive` is off, and so on). A summary line ends the run:
+The CLI prints planned moves, then expanded skip lines for other files under each movie folder (subtitles that were not moved, nested paths when `--recursive` is off, and so on). A summary line follows. With `--dryrun` the run ends there; otherwise you are asked `Apply these changes? [y/N]` and the moves only happen on `y`:
 
 ```text
 Planned operations (move):
@@ -84,65 +82,17 @@ Target directory: /path/to/library
 - MOVE Movie.Title.2020.en.srt -> Movie Title (2020)/Movie Title (2020).en.srt
 
 - SKIP Movie.Title.2020/Extras/readme.txt
-Summary (dry-run): MOVE=2 SKIP=0 (Videos: mkv/mp4/avi/etc. Subtitles: .srt)
+Summary (planned): MOVE=2 SKIP=0 (Videos: mkv/mp4/avi/etc. Subtitles: .srt)
+Apply these changes? [y/N]:
 ```
+
+With `--dryrun` the summary line reads `Summary (dry-run): ...` and there is no prompt.
 
 Coloured `MOVE` / `SKIP` labels appear in a real terminal; the structure above is what you should expect.
 
-## JSON output
-
-Pass `--json` to print the plan and summary as a single JSON document on stdout (the "Using settings from" notice goes to stderr). It works with dry-run and `--apply`, and cannot be combined with `--confirm`, `--history` or `--undo`.
-
-```bash
-movie-renamer --json | jq '.summary'
-```
-
-Example output (dry-run):
-
-```json
-{
-  "mode": "dry-run",
-  "source_dir": "/path/to/source",
-  "target_dir": "/path/to/library",
-  "preset": "plex",
-  "actions": [
-    {
-      "action": "move",
-      "source": "/path/to/source/Movie.Title.2020.1080p.BluRay.x265-RARBG/Movie.Title.2020.1080p.BluRay.x265-RARBG.mkv",
-      "target": "Movie Title (2020)/Movie Title (2020).mkv",
-      "metadata": { "title": "Movie Title", "year": 2020, "edition": null, "tmdb_id": null }
-    },
-    {
-      "action": "move",
-      "source": "/path/to/source/Movie.Title.2020.1080p.BluRay.x265-RARBG/Movie.Title.2020.en.srt",
-      "target": "Movie Title (2020)/Movie Title (2020).en.srt",
-      "metadata": { "title": "Movie Title", "year": 2020, "edition": null, "tmdb_id": null }
-    }
-  ],
-  "skipped": [
-    { "path": "Movie.Title.2020.1080p.BluRay.x265-RARBG/Extras/readme.nfo", "kind": "other" }
-  ],
-  "summary": { "move": 2, "skip": 0, "misc": 0 }
-}
-```
-
-- `target` is relative to `target_dir`. `skipped[].kind` is `subtitle` or `other`.
-- With `--apply`, `mode` is `apply` and two keys are added:
-
-  ```json
-  {
-    "executed": { "move": 2, "skip": 0, "errors": 0 },
-    "batch": { "id": "<batch-id>", "status": "completed", "operations": 2 }
-  }
-  ```
-
-  `batch` is `null` when nothing was moved, and `status` is `partial` if some moves failed.
-- The exit code is 1 if any move errored.
-
 ## Safety
 
-- **Dry-run by default** — nothing is moved until you pass `--apply`.
-- **`--confirm`** — when applying, prompts before each move; declined moves are skipped.
+- **Confirmation required** — the plan is always shown first and nothing is moved unless you answer `y` (default is no). `--dryrun` never moves anything.
 - **Move-only** — reorganisation uses moves, not copies (faster and avoids doubling disk use).
 - **No overwrites** — if a destination file already exists, that operation is skipped with a warning.
 
@@ -181,7 +131,7 @@ All presets use the `Title (Year)/` folder. Kodi has no edition naming, so the e
 
 ## History and undo
 
-After a successful or partial `--apply` run, the tool records a **batch** in `./batches.json` (in the directory you run the command from). Leftover source material for handled folders is archived under:
+After a successful or partial run, the tool records a **batch** in `./batches.json` (in the directory you run the command from). Leftover source material for handled folders is archived under:
 
 ```text
 .movie-renamer/archive/<batch-id>/

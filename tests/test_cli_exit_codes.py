@@ -15,7 +15,7 @@ def _write(path: Path, content: bytes) -> None:
 	path.write_bytes(content)
 
 
-def test_apply_exits_nonzero_on_execution_errors(tmp_path: Path, monkeypatch) -> None:
+def test_confirmed_apply_exits_nonzero_on_execution_errors(tmp_path: Path, monkeypatch) -> None:
 	monkeypatch.chdir(tmp_path)
 	source_dir = tmp_path / 'src'
 	target_dir = tmp_path / 'dst'
@@ -41,17 +41,17 @@ def test_apply_exits_nonzero_on_execution_errors(tmp_path: Path, monkeypatch) ->
 		)
 
 	monkeypatch.setattr(executor_mod, 'execute_actions', fake_execute_actions)
+	monkeypatch.setattr(typer, 'confirm', lambda *a, **k: True)
 
 	with pytest.raises(typer.Exit) as exc_info:
 		main(
 			source_dir=source_dir,
 			target_dir=target_dir,
-			apply=True,
+			dryrun=False,
 			recursive=False,
 			ignore=[],
 			default_lang='en',
 			verbose=False,
-			confirm_each=False,
 			preset=None,
 			filename_only=True,
 			history=False,
