@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -42,7 +41,7 @@ def _choose_match(query: str, candidates: list[TmdbMatch]) -> TmdbMatch | None:
 
 
 def _build_resolver(
-	api_key: str | None, *, filename_only: bool, edition_phrases: list[str] | None, interactive: bool
+	api_key: str | None, *, filename_only: bool, edition_phrases: list[str] | None
 ) -> MetadataResolver | None:
 	if filename_only:
 		return None
@@ -52,10 +51,9 @@ def _build_resolver(
 			'in config.json, or pass --filename-only to use release-name parsing only.'
 		)
 	client = TmdbClient(api_key)
-	chooser = _choose_match if interactive else None
 
 	def resolve(raw: str, parsed: MovieMetadata | None) -> MovieMetadata | None:
-		return resolve_metadata(client, raw, parsed, chooser=chooser, edition_phrases=edition_phrases)
+		return resolve_metadata(client, raw, parsed, chooser=_choose_match, edition_phrases=edition_phrases)
 
 	return resolve
 
@@ -64,22 +62,18 @@ def run_plan_and_apply(
 	source_dir: Path,
 	target_dir: Path,
 	*,
-	apply: bool,
+	dryrun: bool,
 	recursive: bool,
 	ignore_globs: list[str],
 	edition_phrases: list[str] | None,
 	default_lang: str,
 	verbose: bool,
-	confirm_each: bool,
 	preset: str = DEFAULT_PRESET,
-	json_output: bool = False,
 	tmdb_api_key: str | None = None,
 	filename_only: bool = False,
 	id_tag: bool = False,
 ) -> None:
-	resolver = _build_resolver(
-		tmdb_api_key, filename_only=filename_only, edition_phrases=edition_phrases, interactive=not json_output
-	)
+	resolver = _build_resolver(tmdb_api_key, filename_only=filename_only, edition_phrases=edition_phrases)
 	folder_scans = scan_movie_folders(source_dir, recursive=recursive)
 	try:
 		actions = plan_actions(
@@ -99,18 +93,6 @@ def run_plan_and_apply(
 	counts: dict[str, int] = {'move': 0, 'skip': 0}
 	for a in actions:
 		counts[a.action] = counts.get(a.action, 0) + 1
-
-	if json_output:
-		_run_json(
-			source_dir,
-			target_dir,
-			actions=actions,
-			folder_scans=folder_scans,
-			counts=counts,
-			apply=apply,
-			preset=preset,
-		)
-		return
 
 	typer.echo('Planned operations (move):')
 	typer.echo(f'Target directory: {target_dir}')
@@ -133,12 +115,18 @@ def run_plan_and_apply(
 
 	misc_count = _print_skip_logging(source_dir, folder_scans, actions)
 	misc_suffix = f' MISC={misc_count}' if misc_count else ''
-	if not apply:
+	if dryrun:
 		typer.echo(f'Summary (dry-run): MOVE={counts["move"]} SKIP={counts["skip"]}{misc_suffix} ({VIDEO_EXT_HINT})')
 		return
 
-	if confirm_each:
-		actions = _confirm_each_moves(actions)
+	typer.echo(f'Summary (planned): MOVE={counts["move"]} SKIP={counts["skip"]}{misc_suffix} ({VIDEO_EXT_HINT})')
+	if counts['move'] == 0:
+		typer.echo('Nothing to move.')
+		return
+
+	if not typer.confirm('Apply these changes?', default=False):
+		typer.echo('Cancelled. No changes were made.')
+		return
 
 	typer.echo('Applying planned operations...')
 	result = _apply_actions(source_dir, target_dir, actions, folder_scans, verbose=verbose)
@@ -196,63 +184,6 @@ def _apply_actions(
 	return _ApplyResult(summary=summary, batch=batch, operation_count=len(exec_result.executed))
 
 
-def _run_json(
-	source_dir: Path,
-	target_dir: Path,
-	*,
-	actions: list[PlannedAction],
-	folder_scans: list[FolderScan],
-	counts: dict[str, int],
-	apply: bool,
-	preset: str,
-) -> None:
-	skips, misc_count = _collect_skips(source_dir, folder_scans, actions)
-	payload: dict[str, object] = {
-		'mode': 'apply' if apply else 'dry-run',
-		'source_dir': str(source_dir),
-		'target_dir': str(target_dir),
-		'preset': preset,
-		'actions': [
-			{
-				'action': a.action,
-				'source': str(a.source) if a.source else None,
-				'target': _display_target(a.target, target_dir) or None,
-				'metadata': (
-					{
-						'title': a.metadata.title,
-						'year': a.metadata.year,
-						'edition': a.metadata.edition,
-						'tmdb_id': a.metadata.tmdb_id,
-					}
-					if a.metadata is not None
-					else None
-				),
-			}
-			for a in actions
-			if a.action != 'skip'
-		],
-		'skipped': [{'path': path, 'kind': kind} for kind, path in skips],
-		'summary': {'move': counts['move'], 'skip': counts['skip'], 'misc': misc_count},
-	}
-
-	exit_code = 0
-	if apply:
-		result = _apply_actions(source_dir, target_dir, actions, folder_scans, verbose=False)
-		summary = result.summary
-		payload['executed'] = {'move': summary.moves, 'skip': summary.skips, 'errors': summary.errors}
-		payload['batch'] = (
-			{'id': result.batch.id, 'status': result.batch.status, 'operations': result.operation_count}
-			if result.batch is not None
-			else None
-		)
-		if summary.errors > 0:
-			exit_code = 1
-
-	typer.echo(json.dumps(payload, indent=2))
-	if exit_code:
-		raise typer.Exit(code=exit_code)
-
-
 def _print_skip_logging(source_dir: Path, folder_scans: list[FolderScan], actions: list[PlannedAction]) -> int:
 	skips, misc_count = _collect_skips(source_dir, folder_scans, actions)
 	skip_label = label('SKIP', color='bright_black')
@@ -303,22 +234,3 @@ def _collect_skips(
 		skips.extend(('other', p) for p in other_skips)
 
 	return skips, misc_count
-
-
-def _confirm_each_moves(actions: list[PlannedAction]) -> list[PlannedAction]:
-	approved: list[PlannedAction] = []
-	for a in actions:
-		if a.action == 'move' and a.source is not None and a.target is not None:
-			prompt = f'Execute {a.action.upper()}: {a.source.name} -> {a.target}?'
-			if not typer.confirm(prompt, default=False):
-				approved.append(
-					PlannedAction(
-						source=a.source,
-						target=a.target,
-						action='skip',
-						metadata=a.metadata,
-					)
-				)
-				continue
-		approved.append(a)
-	return approved

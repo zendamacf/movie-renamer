@@ -22,21 +22,19 @@ TARGET_DIR_OPT = typer.Option(
 	'--target-dir',
 	help='Root output directory to organise into (must exist). Overrides `target_dir` in config.json.',
 )
-APPLY_OPT = typer.Option(False, '--apply', help='Execute filesystem changes.')
+DRYRUN_OPT = typer.Option(
+	False,
+	'--dryrun',
+	help='Only parse, look up and show the plan; make no filesystem changes and do not prompt.',
+)
 RECURSIVE_OPT = typer.Option(False, '--recursive', help='Descend into subfolders like "Other/".')
 IGNORE_OPT = typer.Option([], '--ignore', help='Additional glob patterns to skip (repeatable).')
 DEFAULT_LANG_OPT = typer.Option('en', '--default-lang', help='Subtitle language when not detected.')
 VERBOSE_OPT = typer.Option(False, '-v', '--verbose', help='Show parsing details per folder.')
-CONFIRM_EACH_OPT = typer.Option(False, '--confirm', help='When applying, prompt for each move before executing.')
 PRESET_OPT = typer.Option(
 	None,
 	'--preset',
 	help='Naming preset: plex (default), jellyfin, emby or kodi. Overrides `preset` in config.json.',
-)
-JSON_OPT = typer.Option(
-	False,
-	'--json',
-	help='Print the plan and summary as JSON on stdout (not usable with --confirm, --history or --undo).',
 )
 FILENAME_ONLY_OPT = typer.Option(
 	False,
@@ -70,14 +68,12 @@ UNDO_ID_ARG = typer.Argument(
 def main(
 	source_dir: Path | None = SOURCE_DIR_OPT,
 	target_dir: Path | None = TARGET_DIR_OPT,
-	apply: bool = APPLY_OPT,
+	dryrun: bool = DRYRUN_OPT,
 	recursive: bool = RECURSIVE_OPT,
 	ignore: list[str] = IGNORE_OPT,
 	default_lang: str = DEFAULT_LANG_OPT,
 	verbose: bool = VERBOSE_OPT,
-	confirm_each: bool = CONFIRM_EACH_OPT,
 	preset: str | None = PRESET_OPT,
-	json_output: bool = JSON_OPT,
 	filename_only: bool = FILENAME_ONLY_OPT,
 	tmdb_api_key: str | None = TMDB_API_KEY_OPT,
 	id_tag: bool = ID_TAG_OPT,
@@ -89,19 +85,14 @@ def main(
 	Plan movie folder renames into a Plex/Jellyfin-friendly `Title (Year)/` structure.
 
 	- settings are read from `config.json` in the current directory; options here override it
-	- default is dry-run
+	- shows the plan, then asks for confirmation before moving anything (`--dryrun` to only show the plan)
 	- titles, years and TMDb ids come from a TMDb lookup (`--filename-only` to parse release names only)
-	- `--apply` executes filesystem changes
 	"""
-	if json_output is True and (confirm_each or history or undo or undo_id is not None):
-		raise typer.BadParameter('--json cannot be combined with --confirm, --history or --undo.')
-
 	resolved = resolve_cli_config(
 		source_dir=source_dir,
 		target_dir=target_dir,
 		ignore=ignore,
 		preset=preset,
-		json_output=json_output is True,
 		filename_only=filename_only is True,
 		id_tag=id_tag is True,
 		tmdb_api_key=tmdb_api_key if isinstance(tmdb_api_key, str) else None,
@@ -122,18 +113,16 @@ def main(
 	run_plan_and_apply(
 		source_dir,
 		target_dir,
-		apply=apply,
+		dryrun=dryrun is True,
 		recursive=recursive,
 		ignore_globs=resolved.ignore_globs,
 		edition_phrases=resolved.edition_phrases,
 		default_lang=default_lang,
 		verbose=verbose,
-		confirm_each=confirm_each,
 		preset=resolved.preset or DEFAULT_PRESET,
 		tmdb_api_key=None if resolved.filename_only else resolved.tmdb_api_key,
 		filename_only=resolved.filename_only,
 		id_tag=resolved.id_tag,
-		json_output=json_output is True,
 	)
 
 

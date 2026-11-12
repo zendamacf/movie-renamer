@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import re
 import urllib.error
 from pathlib import Path
 
@@ -130,7 +131,7 @@ def test_cli_requires_api_key_unless_filename_only(tmp_path: Path, monkeypatch) 
 	assert result.exit_code != 0
 	assert 'TMDb API key' in result.output
 
-	assert CliRunner().invoke(app, [*args, '--filename-only']).exit_code == 0
+	assert CliRunner().invoke(app, [*args, '--filename-only', '--dryrun']).exit_code == 0
 
 
 def test_cli_lookup_uses_tmdb_and_tags_ids(tmp_path: Path, monkeypatch) -> None:
@@ -139,12 +140,11 @@ def test_cli_lookup_uses_tmdb_and_tags_ids(tmp_path: Path, monkeypatch) -> None:
 	monkeypatch.setattr('movie_renamer.cli_plan.TmdbClient', lambda key: _client([_result(652, 'Troy', '2004-05-14')]))
 
 	result = CliRunner().invoke(
-		app, ['--source-dir', str(src), '--target-dir', str(dst), '--tmdb-api-key', 'k', '--id-tag', '--json']
+		app, ['--source-dir', str(src), '--target-dir', str(dst), '--tmdb-api-key', 'k', '--id-tag', '--dryrun', '-v']
 	)
 	assert result.exit_code == 0, result.output
-	payload = json.loads(result.stdout)
-	assert payload['actions'][0]['target'] == 'Troy (2004) {tmdb-652}/Troy (2004) {tmdb-652}.mkv'
-	assert payload['actions'][0]['metadata']['tmdb_id'] == 652
+	assert '-> Troy (2004) {tmdb-652}/Troy (2004) {tmdb-652}.mkv' in result.output
+	assert 'tmdb_id=652' in result.output
 
 
 def test_cli_reports_tmdb_failure(tmp_path: Path, monkeypatch) -> None:
@@ -167,7 +167,9 @@ def test_cli_prompts_on_ambiguous_match(tmp_path: Path, monkeypatch) -> None:
 	monkeypatch.setattr('movie_renamer.cli_plan.TmdbClient', lambda key: _client(results))
 
 	result = CliRunner().invoke(
-		app, ['--source-dir', str(src), '--target-dir', str(dst), '--tmdb-api-key', 'k', '--id-tag'], input='2\n'
+		app,
+		['--source-dir', str(src), '--target-dir', str(dst), '--tmdb-api-key', 'k', '--id-tag', '--dryrun'],
+		input='2\n',
 	)
 	assert result.exit_code == 0, result.output
 	assert 'Multiple TMDb matches' in result.output
@@ -178,11 +180,11 @@ def test_config_supplies_key_and_filename_only(tmp_path: Path, monkeypatch) -> N
 	monkeypatch.chdir(tmp_path)
 	src, dst = _movie(tmp_path)
 	(tmp_path / 'config.json').write_text('{"filename_only": true}', encoding='utf-8')
-	assert CliRunner().invoke(app, ['--source-dir', str(src), '--target-dir', str(dst)]).exit_code == 0
+	assert CliRunner().invoke(app, ['--source-dir', str(src), '--target-dir', str(dst), '--dryrun']).exit_code == 0
 
 	(tmp_path / 'config.json').write_text('{"tmdb_api_key": "abc", "id_tag": true}', encoding='utf-8')
 	monkeypatch.setattr('movie_renamer.cli_plan.TmdbClient', lambda key: _client([_result(5, 'Troy', '2004-01-01')]))
-	result = CliRunner().invoke(app, ['--source-dir', str(src), '--target-dir', str(dst)])
+	result = CliRunner().invoke(app, ['--source-dir', str(src), '--target-dir', str(dst), '--dryrun'])
 	assert result.exit_code == 0 and '{tmdb-5}' in result.output
 
 
@@ -190,13 +192,15 @@ def test_id_tag_is_opt_in_and_id_stays_in_metadata(tmp_path: Path, monkeypatch) 
 	monkeypatch.chdir(tmp_path)
 	src, dst = _movie(tmp_path)
 	monkeypatch.setattr('movie_renamer.cli_plan.TmdbClient', lambda key: _client([_result(652, 'Troy', '2004-05-14')]))
-	args = ['--source-dir', str(src), '--target-dir', str(dst), '--tmdb-api-key', 'k', '--json']
+	args = ['--source-dir', str(src), '--target-dir', str(dst), '--tmdb-api-key', 'k', '--dryrun', '-v']
 
 	def target(extra: list[str]) -> tuple[str, int]:
 		result = CliRunner().invoke(app, [*args, *extra])
 		assert result.exit_code == 0, result.output
-		action = json.loads(result.stdout)['actions'][0]
-		return action['target'], action['metadata']['tmdb_id']
+		dest = re.search(r'-> (.+)$', result.output, re.MULTILINE)
+		tmdb_id = re.search(r'tmdb_id=(\d+)', result.output)
+		assert dest and tmdb_id
+		return dest.group(1), int(tmdb_id.group(1))
 
 	assert target([]) == ('Troy (2004)/Troy (2004).mkv', 652)
 	assert target(['--id-tag']) == ('Troy (2004) {tmdb-652}/Troy (2004) {tmdb-652}.mkv', 652)
@@ -227,7 +231,9 @@ def test_prompt_reasks_on_out_of_range_choice(tmp_path: Path, monkeypatch) -> No
 	results = [_result(1, 'Troy: A', '2004-01-01'), _result(2, 'Troy: B', '2004-02-01')]
 	monkeypatch.setattr('movie_renamer.cli_plan.TmdbClient', lambda key: _client(results))
 	result = CliRunner().invoke(
-		app, ['--source-dir', str(src), '--target-dir', str(dst), '--tmdb-api-key', 'k', '--id-tag'], input='9\n2\n'
+		app,
+		['--source-dir', str(src), '--target-dir', str(dst), '--tmdb-api-key', 'k', '--id-tag', '--dryrun'],
+		input='9\n2\n',
 	)
 	assert result.exit_code == 0, result.output
 	assert 'between 0 and 2' in result.output

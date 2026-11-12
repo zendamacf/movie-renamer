@@ -1,4 +1,4 @@
-.PHONY: install test lint lint-fix typecheck run apply changelog-create changelog-draft release
+.PHONY: install test lint lint-fix typecheck run changelog-create changelog-draft release
 
 VENV ?= .venv
 
@@ -34,9 +34,6 @@ typecheck:
 
 run:
 	"$(PY)" -m movie_renamer.cli $(ARGS)
-
-apply:
-	"$(PY)" -m movie_renamer.cli $(ARGS) --apply
 
 changelog-create:
 	@test -n "$(NAME)" || (echo "Usage: make changelog-create NAME=123.feature" && exit 1)
