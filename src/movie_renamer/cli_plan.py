@@ -41,7 +41,7 @@ def _choose_match(query: str, candidates: list[TmdbMatch]) -> TmdbMatch | None:
 
 
 def _build_resolver(
-	api_key: str | None, *, filename_only: bool, edition_phrases: list[str] | None
+	api_key: str | None, *, filename_only: bool, edition_phrases: list[str] | None, total: int = 0
 ) -> MetadataResolver | None:
 	if filename_only:
 		return None
@@ -51,8 +51,13 @@ def _build_resolver(
 			'in config.json, or pass --filename-only to use release-name parsing only.'
 		)
 	client = TmdbClient(api_key)
+	looked_up = 0
 
 	def resolve(raw: str, parsed: MovieMetadata | None) -> MovieMetadata | None:
+		nonlocal looked_up
+		looked_up += 1
+		# Progress goes to stderr so it never mixes with the plan output.
+		typer.echo(f'[{looked_up}/{total}] Looking up on TMDb: {parsed.title if parsed else raw}', err=True)
 		return resolve_metadata(client, raw, parsed, chooser=_choose_match, edition_phrases=edition_phrases)
 
 	return resolve
@@ -73,8 +78,13 @@ def run_plan_and_apply(
 	filename_only: bool = False,
 	id_tag: bool = False,
 ) -> None:
-	resolver = _build_resolver(tmdb_api_key, filename_only=filename_only, edition_phrases=edition_phrases)
 	folder_scans = scan_movie_folders(source_dir, recursive=recursive)
+	resolver = _build_resolver(
+		tmdb_api_key, filename_only=filename_only, edition_phrases=edition_phrases, total=len(folder_scans)
+	)
+	if resolver is not None and folder_scans:
+		count = len(folder_scans)
+		typer.echo(f'Found {count} movie folder{"" if count == 1 else "s"}. Looking up titles on TMDb...', err=True)
 	try:
 		actions = plan_actions(
 			folder_scans=folder_scans,
